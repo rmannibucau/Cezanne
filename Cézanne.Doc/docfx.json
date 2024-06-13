@@ -28,8 +28,7 @@
       "changefreq": "daily"
     },
     "template": [
-      "default",
-      "modern"
+      "default"
     ]
   }
 }
