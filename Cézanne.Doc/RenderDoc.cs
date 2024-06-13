@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 using System.Text.Json;
 
 namespace Cézanne.Doc
@@ -35,7 +36,7 @@ namespace Cézanne.Doc
                     await _DoRender(logger, docfxConf);
                 }
 
-                using FileSystemWatcher watcher = _Watch(baseDir, OnChange);
+                using var watcher = _Watch(baseDir, OnChange);
 
                 await app.WaitForShutdownAsync();
             }
@@ -43,13 +44,19 @@ namespace Cézanne.Doc
 
         private static void _RunPreActions(string baseDir, ILogger logger)
         {
-            _GenerateJsonSchema(typeof(Manifest), $"{baseDir}/docs/generated/schema/manifest.jsonschema.json", logger);
+            var manifestType = typeof(Manifest);
+            _GenerateJsonSchema(
+                manifestType,
+                $"{baseDir}/docs/generated/schema/manifest.jsonschema.json",
+                logger,
+                (type, property) => type == manifestType && property.Name == "Alveoli");
         }
 
-        private static void _GenerateJsonSchema(Type type, string output, ILogger logger)
+        private static void _GenerateJsonSchema(Type type, string output, ILogger logger, Func<Type, PropertyInfo, bool> ignores)
         {
-            JsonSchemaGenerator jsonSchemaGenerator = new();
-            JsonSchema.JsonSchema schema = jsonSchemaGenerator.For(type);
+            var jsonSchemaGenerator = new JsonSchemaGenerator();
+            var schema = jsonSchemaGenerator.For(type, ignores);
+
             DirectoryInfo? dir = Directory.GetParent(output);
             if (dir?.Exists is false)
             {
@@ -62,11 +69,14 @@ namespace Cézanne.Doc
 
         private static FileSystemWatcher _Watch(string baseDir, Action onChange)
         {
-            FileSystemWatcher watcher = new(baseDir);
-            watcher.IncludeSubdirectories = true;
-            watcher.NotifyFilter = NotifyFilters.Attributes | NotifyFilters.Size | NotifyFilters.FileName |
-                                   NotifyFilters.DirectoryName | NotifyFilters.LastWrite;
-            watcher.Filters.Add("index.md");
+            FileSystemWatcher watcher = new(baseDir)
+            {
+                IncludeSubdirectories = true,
+                NotifyFilter = NotifyFilters.Attributes | NotifyFilters.Size | NotifyFilters.FileName |
+                                   NotifyFilters.DirectoryName | NotifyFilters.LastWrite
+            };
+            watcher.Filters.Add("*.md");
+            watcher.Filters.Add("docfx.json");
             watcher.Filters.Add("toc.yml");
             watcher.Filters.Add("docs/**");
             watcher.Changed += (_, _) => onChange();

@@ -10,12 +10,16 @@
     "resource": [
       {
         "files": "**/images/**"
+      },
+      {
+        "files": "**/generated/**/*.json"
       }
     ],
     "globalMetadata": {
       "_appTitle": "Cézanne",
       "_appName": "Cézanne",
       "_enableSearch": true,
+      "_appFooter": "<span>Made with love by <a href=\"https://x.com/rmannibucau\" target=\"_blank\">@rmannibucau</a> using docfx.</span>",
       "pdf": false
     },
     "sitemap": {

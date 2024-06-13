@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 
 namespace Cézanne.Core.Descriptor
 {
+    [Description("Root descriptor holding the recipes.")]
     public class Manifest
     {
         public enum AwaitConditionType
@@ -75,21 +76,21 @@ namespace Cézanne.Core.Descriptor
         public IEnumerable<IgnoredLintingRule> IgnoredLintingRules { get; set; } = [];
 
         [Description(
-            "Enables to consider all alveoli have their `interpolateDescriptors` descriptor set to `true`, " +
+            "Enables to consider all recipes have their `interpolateDescriptors` descriptor set to `true`, " +
             "you can still set it to `false` if you want to disable it for one.")]
         public bool InterpolateRecipe { get; set; } = false;
 
         [Description(
             "List of files referenced as other manifests. " +
-            "They are merged with this (main) manifest by *appending* _requirements_ and _alveoli_. " +
+            "They are merged with this (main) manifest by *appending* _requirements_ and _recipe_. " +
             "It is relative to this manifest location. " +
-            "Important: it is only about the same module references, external references are dependencies in an alveoli. " +
+            "Important: it is only about the same module references, external references are dependencies in an recipes. " +
             "It enables to split a huge `manifest.json` for an easier maintenance.")]
         public IEnumerable<ManifestReference> References { get; set; } = [];
 
         [Description(
             "Pre manifest execution checks (bundlebee version typically). " +
-            "Avoids to install using a bundlebee/Cézanne version not compatible with the alveoli. Can be fully omitted.")]
+            "Avoids to install using a bundlebee/Cézanne version not compatible with the recipes. Can be fully omitted.")]
         public IEnumerable<Requirement> Requirements { get; set; } = [];
 
         [Description("List of described applications/libraries.")]
@@ -217,7 +218,7 @@ namespace Cézanne.Core.Descriptor
             public bool? InterpolateDescriptors { get; set; }
 
             [Description(
-                "Name of the alveolus (recipe). It must be unique accross the whole classpath. " +
+                "Name of the recipe. It must be unique accross the whole classpath. " +
                 "Using maven style identifier, it is recommended to name it " +
                 "`<groupId>:<artifactId>:<version>` using maven filtering but it is not enforced.")]
             public string? Name { get; set; }
@@ -228,10 +229,10 @@ namespace Cézanne.Core.Descriptor
                 "Note that if set, this is used in priority (explicit versus deduced).")]
             public string? Version { get; set; }
 
-            [Description("List of descriptors to install for this alveolus. This is required even if an empty array.")]
+            [Description("List of descriptors to install for this recipe. This is required even if an empty array.")]
             public IEnumerable<Descriptor>? Descriptors { get; set; } = [];
 
-            [Description("Dependencies of this alveolus. It is a way to import transitively a set of descriptors.")]
+            [Description("Dependencies of this recipe. It is a way to import transitively a set of descriptors.")]
             public IEnumerable<Dependency>? Dependencies { get; set; } = [];
 
             [Description(
@@ -239,7 +240,7 @@ namespace Cézanne.Core.Descriptor
                 "It is useful when you install a namespace for example which must be awaited before next dependencies are installed.")]
             public bool? ChainDependencies { get; set; }
 
-            [Description("List of descriptors to ignore for this alveolus (generally coming from dependencies).")]
+            [Description("List of descriptors to ignore for this recipe (generally coming from dependencies).")]
             public IEnumerable<DescriptorRef>? ExcludedDescriptors { get; set; } = [];
 
             [Description(
@@ -250,8 +251,8 @@ namespace Cézanne.Core.Descriptor
             public IEnumerable<Patch>? Patches { get; set; } = [];
 
             [Description(
-                "Local placeholders for this particular alveolus and its dependencies. " +
-                "It is primarly intended to be able to create a template alveolus and inject the placeholders inline.")]
+                "Local placeholders for this particular recipe and its dependencies. " +
+                "It is primarly intended to be able to create a template recipe and inject the placeholders inline.")]
             public IDictionary<string, string>? Placeholders { get; set; } = new Dictionary<string, string>();
 
             private bool Equals(Recipe other)
@@ -389,7 +390,7 @@ namespace Cézanne.Core.Descriptor
                 "Name of the descriptor to install. For kubernetes descriptors you can omit the `.yaml` extension.")]
             public string? Name { get; set; }
 
-            [Description("Optional, if coming from another manifest, the dependency to download to get the alveolus.")]
+            [Description("Optional, if coming from another manifest, the dependency to download to get the recipe.")]
             public string? Location { get; set; }
 
             [Description("" +
@@ -412,7 +413,7 @@ namespace Cézanne.Core.Descriptor
             [Description("" +
                          "If set to `true`, it will interpolate the descriptor just before applying it - i.e. after it had been patched if needed. " +
                          "You can use `--<config-key> <value>` to inject bindings set as `{{config-key:-default value}}`. " +
-                         "If not set, `interpolateDescriptors` flag from the alveolus will be used.")]
+                         "If not set, `interpolateDescriptors` flag from the recipe will be used.")]
             public bool? Interpolate { get; set; }
 
             [Description("Conditions to include this descriptor.")]
@@ -567,9 +568,9 @@ namespace Cézanne.Core.Descriptor
 
         public class Dependency
         {
-            [Description("Alveolus name.")] public string? Name { get; set; }
+            [Description("Recipe name.")] public string? Name { get; set; }
 
-            [Description("Where to find the alveolus. " +
+            [Description("Where to find the recipe. " +
                          "Note it will ensure the jar is present on the local maven repository.")]
             public string? Location { get; set; }
 

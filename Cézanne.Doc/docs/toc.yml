@@ -1,2 +1,4 @@
 - name: Getting Started
   href: getting-started.md
+- name: Manifest Reference
+  href: manifest-reference.md

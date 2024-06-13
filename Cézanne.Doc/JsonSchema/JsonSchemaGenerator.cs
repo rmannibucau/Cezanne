@@ -22,14 +22,16 @@ namespace Cézanne.Doc.JsonSchema
             Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
         };
 
-        public JsonSchema For(Type type)
+        public JsonSchema For(Type type, Func<Type, PropertyInfo, bool> isIgnored)
         {
-            JsonSchema schema = _GenerateJsonSchema(type, false);
+            JsonSchema schema = _GenerateJsonSchema(type, false, isIgnored);
             schema.Schema = "https://json-schema.org/draft/2020-12/schema";
+            schema.Title = type.Name;
+            schema.Description = type.GetCustomAttribute<DescriptionAttribute>()?.Description ?? type.Name;
             return schema;
         }
 
-        private JsonSchema _GenerateJsonSchema(Type type, bool rootIsNullable)
+        private JsonSchema _GenerateJsonSchema(Type type, bool rootIsNullable, Func<Type, PropertyInfo, bool> isIgnored)
         {
             JsonSchema schema = new();
             if (rootIsNullable)
@@ -46,7 +48,7 @@ namespace Cézanne.Doc.JsonSchema
             IList<string>? required = null;
             foreach (PropertyInfo property in type.GetProperties())
             {
-                if (!property.CanRead)
+                if (!property.CanRead || isIgnored(type, property))
                 {
                     continue;
                 }
@@ -97,7 +99,8 @@ namespace Cézanne.Doc.JsonSchema
                 {
                     propertySchema = new JsonSchema
                     {
-                        Enum = _EnumValues(propertyType), Description = _EnumDescription(propertyType)
+                        Enum = _EnumValues(propertyType),
+                        Description = _EnumDescription(propertyType)
                     };
                     _SetSchemaType(nullable, propertySchema, JsonSchema.JsonSchemaType.String);
                 }
@@ -127,18 +130,19 @@ namespace Cézanne.Doc.JsonSchema
                     {
                         propertySchema.Items = new JsonSchema
                         {
-                            Description = _EnumDescription(propertyType), Enum = _EnumValues(propertyType)
+                            Description = _EnumDescription(propertyType),
+                            Enum = _EnumValues(propertyType)
                         };
                         _SetSchemaType(nestedIsNullable, propertySchema.Items, JsonSchema.JsonSchemaType.String);
                     }
                     else
                     {
-                        propertySchema.Items = _GenerateJsonSchema(nestedType, nestedIsNullable);
+                        propertySchema.Items = _GenerateJsonSchema(nestedType, nestedIsNullable, isIgnored);
                     }
                 }
                 else
                 {
-                    propertySchema = _GenerateJsonSchema(propertyType, nullable);
+                    propertySchema = _GenerateJsonSchema(propertyType, nullable, isIgnored);
                 }
 
                 schema.Properties[propertyName] = propertySchema;

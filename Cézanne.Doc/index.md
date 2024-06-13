@@ -4,6 +4,7 @@ _layout: landing
 
 # Cézanne Project
 
-## Quick Start Notes:
+ > [!WARNING]
+ > As of today Cezanne implementation is not complete and you should refer to [Yupiik Bundlebee](https://www.yupiik.io/bundlebee/) as a replacement.
 
-1. TBD
+Go on the [documentation](docs/getting-started.md) to learn more about the project.
