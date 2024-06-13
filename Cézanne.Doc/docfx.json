@@ -1,0 +1,31 @@
+{
+  "build": {
+    "output": "_site",
+    "content": [
+      {
+        "files": "**/*.{md,yml}",
+        "exclude": "**/_site/**"
+      }
+    ],
+    "resource": [
+      {
+        "files": "**/images/**"
+      }
+    ],
+    "globalMetadata": {
+      "_appTitle": "Cézanne",
+      "_appName": "Cézanne",
+      "_enableSearch": true,
+      "pdf": false
+    },
+    "sitemap": {
+      "baseUrl": "http://localhost:8080",
+      "priority": 0.1,
+      "changefreq": "daily"
+    },
+    "template": [
+      "default",
+      "modern"
+    ]
+  }
+}

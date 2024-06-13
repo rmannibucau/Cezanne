@@ -1,0 +1,12 @@
+bin
+obj
+
+.idea
+*.iml
+*.iws
+*.ipr
+.vscode
+*.DotSettings.user
+
+_site
+
