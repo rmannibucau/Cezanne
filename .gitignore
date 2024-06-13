@@ -9,4 +9,5 @@ obj
 *.DotSettings.user
 
 _site
+generated
 
