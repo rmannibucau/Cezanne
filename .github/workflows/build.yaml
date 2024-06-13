@@ -1,6 +1,6 @@
-name: dotnet package
+name: Default Build
 
-on: [push]
+on: [ push, workflow_dispatch ]
 
 jobs:
   build:
