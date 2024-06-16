@@ -23,12 +23,12 @@
       "pdf": false
     },
     "sitemap": {
-      "baseUrl": "http://localhost:8080",
+      "baseUrl": "https://rmannibucau.github.com/Cezanne",
       "priority": 0.1,
-      "changefreq": "daily"
+      "changefreq": "weekly"
     },
     "template": [
-      "default"
+      "default", "bin/templates/SingulinkFX-3.0.2/singulinkfx"
     ]
   }
 }

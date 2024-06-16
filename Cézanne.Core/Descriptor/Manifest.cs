@@ -11,25 +11,30 @@ namespace Cézanne.Core.Descriptor
     {
         public enum AwaitConditionType
         {
-            [JsonPropertyName("JSON_POINTER")] [Description("JSON Pointer evaluation (fully custom).")]
+            [JsonPropertyName("JSON_POINTER")]
+            [Description("JSON Pointer evaluation (fully custom).")]
             JsonPointer,
 
-            [JsonPropertyName("STATUS_CONDITION")] [Description("Evaluate items in `/status/conditions`.")]
+            [JsonPropertyName("STATUS_CONDITION")]
+            [Description("Evaluate items in `/status/conditions`.")]
             StatusCondition
         }
 
         public enum ConditionOperator
         {
-            [Description("At least one condition must match.")] [JsonPropertyName("ANY")]
+            [Description("At least one condition must match.")]
+            [JsonPropertyName("ANY")]
             Any,
 
-            [Description("All conditions must match.")] [JsonPropertyName("ALL")]
+            [Description("All conditions must match.")]
+            [JsonPropertyName("ALL")]
             All
         }
 
         public enum ConditionType
         {
-            [Description("Key is read from process environment variables.")] [JsonPropertyName("ENV")]
+            [Description("Key is read from process environment variables.")]
+            [JsonPropertyName("ENV")]
             Env,
 
             [Description("Key is read from application settings, either `cezanne` section or `AppSettings`.")]
@@ -39,16 +44,20 @@ namespace Cézanne.Core.Descriptor
 
         public enum JsonPointerOperator
         {
-            [JsonPropertyName("EXISTS")] [Description("JSON Pointer exists model.")]
+            [JsonPropertyName("EXISTS")]
+            [Description("JSON Pointer exists model.")]
             Exists,
 
-            [JsonPropertyName("MISSING")] [Description("JSON Pointer does not exist in the resource model.")]
+            [JsonPropertyName("MISSING")]
+            [Description("JSON Pointer does not exist in the resource model.")]
             Missing,
 
-            [JsonPropertyName("EQUALS")] [Description("JSON Pointer value is equal to (stringified comparison) value.")]
+            [JsonPropertyName("EQUALS")]
+            [Description("JSON Pointer value is equal to (stringified comparison) value.")]
             EqualsValue,
 
-            [JsonPropertyName("NOT_EQUALS")] [Description("JSON Pointer is different from the provided value.")]
+            [JsonPropertyName("NOT_EQUALS")]
+            [Description("JSON Pointer is different from the provided value.")]
             NotEquals,
 
             [JsonPropertyName("EQUALS_IGNORE_CASE")]
@@ -59,7 +68,8 @@ namespace Cézanne.Core.Descriptor
             [Description("JSON Pointer is different (ignoring case) from the provided value.")]
             NotEqualsIgnoreCase,
 
-            [JsonPropertyName("CONTAINS")] [Description("JSON Pointer contains the configured value.")]
+            [JsonPropertyName("CONTAINS")]
+            [Description("JSON Pointer contains the configured value.")]
             Contains
         }
 
@@ -317,6 +327,52 @@ namespace Cézanne.Core.Descriptor
 
         public class AwaitConditions
         {
+            [Description("Operator to combine the conditions.")]
+            [JsonPropertyName("operator")]
+            public ConditionOperator OperatorType { get; set; } = ConditionOperator.All;
+
+            [Description("List of condition to match according `operator`.")]
+            public IEnumerable<AwaitCondition> Conditions { get; set; } = [];
+
+            [Description("Command to apply these conditions to, if not set it will be applied on `apply` command only. " +
+                    "Note that for now only `apply` and `delete` commands are supported, others will be ignored.")]
+            public string Command { get; set; } = "apply";
+
+            protected bool Equals(AwaitConditions other)
+            {
+                return OperatorType == other.OperatorType &&
+                       Conditions.SequenceEqual(other.Conditions) &&
+                       Command == other.Command;
+            }
+
+            public override bool Equals(object? obj)
+            {
+                if (obj is null)
+                {
+                    return false;
+                }
+
+                if (ReferenceEquals(this, obj))
+                {
+                    return true;
+                }
+
+                if (obj.GetType() != GetType())
+                {
+                    return false;
+                }
+
+                return Equals((AwaitConditions)obj);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(OperatorType, Conditions, Command);
+            }
+        }
+
+        public class AwaitCondition
+        {
             [Description("Type of condition.")]
             [JsonPropertyName("type")]
             public AwaitConditionType TypeValue { get; set; } = AwaitConditionType.JsonPointer;
@@ -330,7 +386,7 @@ namespace Cézanne.Core.Descriptor
             [Description("" +
                          "The operation to evaluate if this condition is true or not. " +
                          "(for `type=JSON_POINTER`).")]
-            public JsonPointerOperator? OperatorType { get; set; } = JsonPointerOperator.Exists;
+            public JsonPointerOperator? OperatorType { get; set; } = JsonPointerOperator.EqualsValue;
 
             [Description("" +
                          "When condition type is `STATUS_CONDITION` it is the expected type of the condition. " +
@@ -341,9 +397,9 @@ namespace Cézanne.Core.Descriptor
                          "When condition type is `JSON_POINTER` and `operatorType` needs a value (`EQUALS` for example), the related value. " +
                          "It can be `Active` if you test namespace `/status/phase` for example. " +
                          "When condition type is `STATUS_CONDITION` it is the expected status.")]
-            public string? Value { get; set; }
+            public object? Value { get; set; }
 
-            protected bool Equals(AwaitConditions other)
+            protected bool Equals(AwaitCondition other)
             {
                 return TypeValue == other.TypeValue && Pointer == other.Pointer && OperatorType == other.OperatorType &&
                        ConditionType == other.ConditionType && Value == other.Value;
@@ -366,7 +422,7 @@ namespace Cézanne.Core.Descriptor
                     return false;
                 }
 
-                return Equals((AwaitConditions)obj);
+                return Equals((AwaitCondition)obj);
             }
 
             public override int GetHashCode()
@@ -398,7 +454,7 @@ namespace Cézanne.Core.Descriptor
                          "It is useful for namespaces for example to ensure applications can be created in the newly created namespace. " +
                          "It avoids to run and rerun apply command in practise. " +
                          "For more advanced tests, use `awaitConditions`.")]
-            public bool? Await { get; set; }
+            public bool Await { get; set; } = false;
 
             [Description(
                 "On delete we rarely want to check the resource exists before but in these rare case you can set this toggle to `true`.")]
@@ -432,7 +488,7 @@ namespace Cézanne.Core.Descriptor
             protected bool Equals(Descriptor other)
             {
                 return Type == other.Type && Name == other.Name && Location == other.Location && Await == other.Await &&
-                       AwaitOnDelete == other.AwaitOnDelete && Equals(AwaitConditions, other.AwaitConditions) &&
+                       AwaitOnDelete == other.AwaitOnDelete && (AwaitConditions ?? []).SequenceEqual(other.AwaitConditions ?? []) &&
                        Interpolate == other.Interpolate && Equals(IncludeIf, other.IncludeIf);
             }
 

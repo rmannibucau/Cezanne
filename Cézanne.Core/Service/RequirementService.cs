@@ -4,7 +4,9 @@ namespace Cézanne.Core.Service
 {
     public class RequirementService
     {
-        public string? BundlebeeVersion { get; set; }
+        private const string DefaultBundlebeeVersion = "1.0.28";
+
+        public string BundlebeeVersion { get; init; } = DefaultBundlebeeVersion;
 
         public void CheckRequirements(Manifest manifest)
         {
@@ -50,10 +52,11 @@ namespace Cézanne.Core.Service
             }
         }
 
+        // not using System.Version cause it is restrictive in terms of format but same spirit
         private bool _CompareVersion(string expected, bool? expectNegative)
         {
             string[] expectedSegments = expected.Split(".");
-            string[] actualSegments = (BundlebeeVersion ?? "1.0.28").Split(".");
+            string[] actualSegments = BundlebeeVersion.Split(".");
             int segmentLoopLength = Math.Min(expectedSegments.Length, actualSegments.Length);
             for (int i = 0; i < segmentLoopLength; i++)
             {

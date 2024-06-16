@@ -2,6 +2,8 @@ using Cézanne.Core.Descriptor;
 using Cézanne.Core.K8s;
 using Cézanne.Core.Maven;
 using Cézanne.Core.Runtime;
+using HandlebarsDotNet;
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Configuration;
@@ -17,7 +19,7 @@ namespace Cézanne.Core.Interpolation
 {
     // probably not the best bet but has some history in Yupiik bundlebee and minimum is to inherit from this behavior
     // todo: enhance to behave more as a c# interpolation
-    public sealed class Substitutor(Func<string, string?, string?> lookup, K8SClient? k8s, MavenService? maven)
+    public sealed class Substitutor([FromKeyedServices("cezannePlaceholderLookupCallback")] Func<string, string?, string?> lookup, K8SClient? k8s, MavenService? maven)
     {
         private const char Escape = '\\';
         private const string Prefix = "{{";
@@ -27,7 +29,7 @@ namespace Cézanne.Core.Interpolation
         private const int MaxIterations = 100;
 
         [ThreadStatic]
-        static IDictionary<string, string> contextualPlaceholders = ImmutableDictionary<string, string>.Empty;
+        private static IDictionary<string, string> contextualPlaceholders = ImmutableDictionary<string, string>.Empty;
 
         public Substitutor(Func<string, string?> lookup, K8SClient? k8s, MavenService? maven) : this(
             (key, _) => lookup(key), k8s, maven)
@@ -38,7 +40,7 @@ namespace Cézanne.Core.Interpolation
 
         public T WithContext<T>(IDictionary<string, string> placeholders, Func<T> provider)
         {
-            var old = contextualPlaceholders;
+            IDictionary<string, string> old = contextualPlaceholders;
             contextualPlaceholders = placeholders;
             try
             {
@@ -135,16 +137,24 @@ namespace Cézanne.Core.Interpolation
             return startOfString + _DoGetOrDefault(alveolus, descriptor, key, null, id) + endOfString;
         }
 
-        private IDictionary<string, Func<object, string>> _HandlebarsHelpers()
+        private string _Handlebars(Manifest.Recipe? recipe, LoadedDescriptor? desc, string source, string? id)
         {
-            return ImmutableDictionary<string, Func<object, string>>.Empty;
-        }
+            IHandlebars? hb = Handlebars.Create();
 
-        private string _Handlebars(Manifest.Recipe? alveolus, LoadedDescriptor? desc, string source, string? id)
-        {
-            // todo
-            throw new NotImplementedException();
-            // return new HandlebarsInterpolator(alveolus, desc, id, _HandlebarsHelpers(), this::replace).apply(source);
+            HandlebarsHelper base64 = (output, context, args) =>
+                Convert.ToBase64String(Encoding.UTF8.GetBytes((string)args[1]));
+            using (hb.Configure())
+            {
+                hb.RegisterHelper("base64", base64);
+                hb.RegisterHelper("base64Url", base64); // not accurate, FIXME
+                // todo: register fallback helper doing a standard substitution for strings to reuse all built-in subs
+            }
+
+            return hb.Compile(source)(new
+            {
+                // todo: if adopted we should move to IDictionnary which is way faster
+                recipe, alveolus = recipe, descriptor = desc, executionId = id ?? ""
+            });
         }
 
         private string _DoGetOrDefault(Manifest.Recipe? alveolus, LoadedDescriptor? descriptor, string varName,

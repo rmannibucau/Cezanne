@@ -20,7 +20,7 @@ namespace Cézanne.Doc
             string docfxConf = $"{baseDir}/docfx.json";
 
             using ILoggerFactory loggerFactory = LoggerFactory.Create(b => b.AddConsole());
-            ILogger logger = loggerFactory.CreateLogger(typeof(RenderDoc));
+            var logger = loggerFactory.CreateLogger(typeof(RenderDoc));
 
             _RunPreActions(baseDir, logger);
 
@@ -36,7 +36,7 @@ namespace Cézanne.Doc
                     await _DoRender(logger, docfxConf);
                 }
 
-                using var watcher = _Watch(baseDir, OnChange);
+                using FileSystemWatcher watcher = _Watch(baseDir, OnChange);
 
                 await app.WaitForShutdownAsync();
             }
@@ -44,7 +44,7 @@ namespace Cézanne.Doc
 
         private static void _RunPreActions(string baseDir, ILogger logger)
         {
-            var manifestType = typeof(Manifest);
+            Type manifestType = typeof(Manifest);
             _GenerateJsonSchema(
                 manifestType,
                 $"{baseDir}/docs/generated/schema/manifest.jsonschema.json",
@@ -52,10 +52,11 @@ namespace Cézanne.Doc
                 (type, property) => type == manifestType && property.Name == "Alveoli");
         }
 
-        private static void _GenerateJsonSchema(Type type, string output, ILogger logger, Func<Type, PropertyInfo, bool> ignores)
+        private static void _GenerateJsonSchema(Type type, string output, ILogger logger,
+            Func<Type, PropertyInfo, bool> ignores)
         {
-            var jsonSchemaGenerator = new JsonSchemaGenerator();
-            var schema = jsonSchemaGenerator.For(type, ignores);
+            JsonSchemaGenerator jsonSchemaGenerator = new JsonSchemaGenerator();
+            JsonSchema.JsonSchema schema = jsonSchemaGenerator.For(type, ignores);
 
             DirectoryInfo? dir = Directory.GetParent(output);
             if (dir?.Exists is false)
@@ -73,7 +74,7 @@ namespace Cézanne.Doc
             {
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.Attributes | NotifyFilters.Size | NotifyFilters.FileName |
-                                   NotifyFilters.DirectoryName | NotifyFilters.LastWrite
+                               NotifyFilters.DirectoryName | NotifyFilters.LastWrite
             };
             watcher.Filters.Add("*.md");
             watcher.Filters.Add("docfx.json");

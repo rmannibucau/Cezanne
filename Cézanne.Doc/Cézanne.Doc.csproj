@@ -6,6 +6,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+        <SingulinkFXVersion>3.0.2</SingulinkFXVersion>
+        <SiteThemeUrl>https://github.com/Singulink/SingulinkFX/archive/refs/tags/v$(SingulinkFXVersion).zip</SiteThemeUrl>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
       <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -21,12 +24,25 @@
     </ItemGroup>
 
     <!-- dotnet msbuild Cézanne.Doc/ /t:RemoveSite -->
-    <Target Name="RemoveSite">
-        <RemoveDir Directories="$(MSBuildProjectDirectory)/_site" />
+    <Target Name="RemoveSite" AfterTargets="BeforeClean">
+        <RemoveDir Directories="$(MSBuildProjectDirectory)/_site;$(BaseOutputPath)\templates" />
     </Target>
+    <Target Name="AutoRemoveSite" DependsOnTargets="BeforeClean" />
 
     <!-- dotnet msbuild Cézanne.Doc/ /t:ServeSite -->
+    <Target Name="DownloadSiteTheme" AfterTargets="BeforeBuild" Condition="!Exists('$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\singulinkfx')">
+      <ItemGroup>
+        <_ClobberDirectories Include="$(BaseOutputPath)\templates"/>
+      </ItemGroup>
+      <RemoveDir Directories="@(_ClobberDirectories)" ContinueOnError="true"/>
+      <DownloadFile SourceUrl="$(SiteThemeUrl)" DestinationFolder="$(BaseOutputPath)\templates" DestinationFileName="singulinkfx.zip" />
+      <Unzip
+        SourceFiles="$(BaseOutputPath)\templates\singulinkfx.zip"
+        DestinationFolder="$(BaseOutputPath)\templates" />
+      <RemoveDir Directories="$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\screenshots" />
+      <Delete Files="$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\README.md;$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\LICENSE;$(BaseOutputPath)\templates\singulinkfx.zip" />
+    </Target>
     <Target Name="ServeSite" DependsOnTargets="Build">
-        <Exec Command="$(OutDir)/$(MSBuildProjectName) true"/>
+        <Exec Command="$(OutDir)\$(MSBuildProjectName) true"/>
     </Target>
 </Project>

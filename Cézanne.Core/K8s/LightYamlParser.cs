@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Cézanne.Core.K8s
 {
-    // todo: check if we impl it properly or import YamlDotNet lib
+    // todo: use YamlDotNet but keep it as being optional (todo in the rest of the code too)
     public class LightYamlParser
     {
         public object Parse(TextReader reader)

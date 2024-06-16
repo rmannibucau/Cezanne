@@ -10,12 +10,13 @@ namespace Cézanne.Runner
         private static async Task Main(string[] args)
         {
             // todo: rewrite, this was to test minikube
+            using var factory = LoggerFactory.Create(b => b.AddConsole());
             using K8SClient client = new(
                 new K8SClientConfiguration
                 {
                     Kubeconfig = Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "/root", ".kube/config")
                 },
-                LoggerFactory.Create(b => b.AddConsole()));
+                new Logger<K8SClient>(factory));
             HttpResponseMessage api = await client.SendAsync(HttpMethod.Get, "api/v1");
             string apiResponse = await api.Content.ReadAsStringAsync();
             Console.WriteLine(api.StatusCode);

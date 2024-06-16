@@ -8,22 +8,26 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace Cézanne.Core.Service
 {
     public class RecipeHandler(
-        ILoggerFactory loggerFactory,
+        ILogger<RecipeHandler> logger,
         ManifestReader manifestReader,
         ArchiveReader archiveReader,
         RequirementService requirementService,
         ConditionEvaluator conditionEvaluator,
         Substitutor substitutor)
     {
-        private readonly ILogger<RecipeHandler> _logger = loggerFactory.CreateLogger<RecipeHandler>();
+        private readonly IDeserializer _yamlDeserializer = new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .Build();
 
         public async Task ExecuteOnceOnRecipe(string prefixOnVisitLog,
             Manifest manifest, Manifest.Recipe recipe,
-            Func<VisitContext, Task> userCallback,
+            Func<VisitContext, Task>? userCallback,
             Func<VisitContext, LoadedDescriptor, Task> onDescriptor,
             ArchiveReader.Cache cache,
             Func<LoadedDescriptor, Task> awaiter,
@@ -38,7 +42,7 @@ namespace Cézanne.Core.Service
                 }
                 else
                 {
-                    _logger.LogInformation("{Name} already {handler}, skipping", desc.Configuration.Name,
+                    logger.LogInformation("{Name} already {handler}, skipping", desc.Configuration.Name,
                         alreadyHandledMarker);
                 }
             }, cache, awaiter, id);
@@ -81,7 +85,7 @@ namespace Cézanne.Core.Service
             IDictionary<string, string> placeholders,
             string? id)
         {
-            _logger.LogInformation("{Marker} '{Recipe}'", prefixOnVisitLog, from.Name);
+            logger.LogInformation("{Marker} '{Recipe}'", prefixOnVisitLog, from.Name);
 
             IEnumerable<Manifest.DescriptorRef> currentExcludes = [.. excludes, .. from.ExcludedDescriptors ?? []];
             IDictionary<Predicate<string>, Manifest.Patch> currentPatches =
@@ -118,7 +122,7 @@ namespace Cézanne.Core.Service
                 }
             }
 
-            var descriptorsTasks = await Task.WhenAll(
+            LoadedDescriptor[]? descriptorsTasks = await Task.WhenAll(
                 _SelectDescriptors(from, excludes)
                     .Select(desc => _FindDescriptor(desc, cache, id)));
             await _AfterDependencies(
@@ -135,15 +139,16 @@ namespace Cézanne.Core.Service
             IDictionary<Predicate<string>, Manifest.Patch> currentPatches,
             LoadedDescriptor[] descriptors, string? id)
         {
-            _logger.LogTrace("Visiting {descriptors}", descriptors);
+            logger.LogTrace("Visiting {descriptors}", descriptors);
 
-            var rankedDescriptors = _RankDescriptors(descriptors);
-            foreach (var descs in rankedDescriptors)
+            IEnumerable<IEnumerable<LoadedDescriptor>> rankedDescriptors = _RankDescriptors(descriptors);
+            foreach (IEnumerable<LoadedDescriptor> descs in rankedDescriptors)
             {
                 if (!descs.Any())
                 {
                     continue;
                 }
+
                 if (awaiter is null)
                 {
                     await _PrepareDescriptors(
@@ -152,7 +157,7 @@ namespace Cézanne.Core.Service
                 }
                 else
                 {
-                    var filteredDescriptors = new List<LoadedDescriptor>();
+                    List<LoadedDescriptor> filteredDescriptors = new();
                     await _PrepareDescriptors(
                         manifest, from, patches, placeholders, excludes, cache,
                         (ctx, desc) =>
@@ -161,12 +166,13 @@ namespace Cézanne.Core.Service
                             {
                                 filteredDescriptors.Add(desc);
                             }
+
                             return onDescriptor(ctx, desc);
                         },
                         currentPatches, descs, id);
                     if (filteredDescriptors.Count > 0)
                     {
-                        var aggregatedAwait = filteredDescriptors.Select(awaiter);
+                        IEnumerable<Task> aggregatedAwait = filteredDescriptors.Select(awaiter);
                         await Task.WhenAll(aggregatedAwait);
                     }
                 }
@@ -174,23 +180,24 @@ namespace Cézanne.Core.Service
         }
 
         private async Task _PrepareDescriptors(Manifest manifest, Manifest.Recipe from,
-                                               IDictionary<Predicate<string>, Manifest.Patch> patches,
-                                               IDictionary<string, string> placeholders,
-                                               IEnumerable<Manifest.DescriptorRef> excludes,
-                                               ArchiveReader.Cache cache, Func<VisitContext, LoadedDescriptor, Task> onDescriptor,
-                                               IDictionary<Predicate<string>, Manifest.Patch> currentPatches,
-                                               IEnumerable<LoadedDescriptor> descs, string? id)
+            IDictionary<Predicate<string>, Manifest.Patch> patches,
+            IDictionary<string, string> placeholders,
+            IEnumerable<Manifest.DescriptorRef> excludes,
+            ArchiveReader.Cache cache, Func<VisitContext, LoadedDescriptor, Task> onDescriptor,
+            IDictionary<Predicate<string>, Manifest.Patch> currentPatches,
+            IEnumerable<LoadedDescriptor> descs, string? id)
         {
-            var tasks = descs
+            IEnumerable<Task> tasks = descs
                 .Select(it => _Prepare(from, it, currentPatches, placeholders, id))
-                .Select(it => onDescriptor(new VisitContext(manifest, from, patches, placeholders, excludes, cache, id), it));
+                .Select(it =>
+                    onDescriptor(new VisitContext(manifest, from, patches, placeholders, excludes, cache, id), it));
             await Task.WhenAll(tasks);
         }
 
         private LoadedDescriptor _Prepare(Manifest.Recipe from, LoadedDescriptor desc,
-                                          IDictionary<Predicate<string>, Manifest.Patch> currentPatches,
-                                          IDictionary<string, string> placeholders,
-                                          string? id)
+            IDictionary<Predicate<string>, Manifest.Patch> currentPatches,
+            IDictionary<string, string> placeholders,
+            string? id)
         {
             if (currentPatches.Count == 0)
             {
@@ -199,31 +206,37 @@ namespace Cézanne.Core.Service
 
             return substitutor.WithContext(placeholders, () =>
             {
-                var content = desc.Content;
-                var patches = currentPatches
-                    .Where(it => it.Key(desc.Configuration.Name ?? "") || it.Key($"{desc.Configuration.Name}.{desc.Extension}"));
-                var alreadyInterpolated = false;
-                foreach (var patch in patches.Select(it => it.Value))
+                string content = desc.Content;
+                IEnumerable<KeyValuePair<Predicate<string>, Manifest.Patch>> patches = currentPatches
+                    .Where(it =>
+                        it.Key(desc.Configuration.Name ?? "") || it.Key($"{desc.Configuration.Name}.{desc.Extension}"));
+                bool alreadyInterpolated = false;
+                foreach (Manifest.Patch patch in patches.Select(it => it.Value))
                 {
                     if (patch.Interpolate ?? false)
                     {
                         content = substitutor.Replace(from, desc, content, id);
                     }
+
                     if (patch.PatchValue is null)
                     {
                         continue;
                     }
+
                     if (!conditionEvaluator.Test(patch.IncludeIf))
                     {
                         continue;
                     }
 
-                    var patchString = JsonSerializer.Serialize(patch.PatchValue, Jsons.Options);
+                    string patchString = JsonSerializer.Serialize(patch.PatchValue, Jsons.Options);
                     if (patch.Interpolate ?? false)
                     {
                         patchString = substitutor.Replace(from, desc, patchString, id);
                     }
-                    var jsonPatch = JsonSerializer.Deserialize<JsonPatch>(patchString, Jsons.Options) ?? throw new InvalidOperationException($"Can't read interpolated patch {patch} (interpolated={patchString})");
+
+                    JsonPatch jsonPatch = JsonSerializer.Deserialize<JsonPatch>(patchString, Jsons.Options) ??
+                                          throw new InvalidOperationException(
+                                              $"Can't read interpolated patch {patch} (interpolated={patchString})");
 
                     if ("json" != desc.Extension)
                     {
@@ -232,7 +245,11 @@ namespace Cézanne.Core.Service
 
                     try
                     {
-                        var json = JsonSerializer.Deserialize<JsonValue>(desc.Content, Jsons.Options);
+                        object? json = desc.Extension switch
+                        {
+                            "json" => JsonSerializer.Deserialize<JsonValue>(desc.Content, Jsons.Options),
+                            _ => _yamlDeserializer.Deserialize<object>(desc.Content)
+                        };
                         content = JsonSerializer.Serialize(jsonPatch.Apply(json), Jsons.Options);
                     }
                     catch (Exception e)
@@ -241,10 +258,14 @@ namespace Cézanne.Core.Service
                         {
                             throw new InvalidOperationException($"Can't patch '{desc.Configuration.Name}': {e}");
                         }
-                        _logger.LogTrace("Trying to interpolate the descriptor before patching it since it failed without: '{Name}'", desc.Configuration.Name);
+
+                        logger.LogTrace(
+                            "Trying to interpolate the descriptor before patching it since it failed without: '{Name}'",
+                            desc.Configuration.Name);
                         content = substitutor.Replace(from, desc, content, id);
                         alreadyInterpolated = true;
-                        content = JsonSerializer.Serialize(jsonPatch.Apply(JsonSerializer.Deserialize<JsonValue>(content, Jsons.Options)));
+                        content = JsonSerializer.Serialize(
+                            jsonPatch.Apply(JsonSerializer.Deserialize<JsonValue>(content, Jsons.Options)));
                     }
                 }
 
@@ -261,19 +282,21 @@ namespace Cézanne.Core.Service
         {
             var rankedDescriptors = new List<IEnumerable<LoadedDescriptor>>(1 /*generally 1 or 2*/);
             var current = new List<LoadedDescriptor>();
-            foreach (var desc in descriptors)
+            foreach (LoadedDescriptor desc in descriptors)
             {
                 current.Add(desc);
-                if (desc.Configuration.Await ?? false)
+                if (desc.Configuration.Await)
                 {
                     rankedDescriptors.Add(current);
                     current = [];
                 }
             }
+
             if (current.Count > 0)
             {
                 rankedDescriptors.Add(current);
             }
+
             return rankedDescriptors;
         }
 
@@ -367,7 +390,7 @@ namespace Cézanne.Core.Service
 
             Func<Task> resultWithLookup = async () =>
             {
-                var ctx = await _FindRecipe(
+                RecipeContext ctx = await _FindRecipe(
                     it.Location ?? throw new ArgumentNullException("no dependency location", nameof(it.Location)),
                     it.Name ?? throw new ArgumentNullException("No dependency name", nameof(it.Name)),
                     cache, id);

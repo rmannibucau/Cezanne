@@ -2,6 +2,7 @@ using Cézanne.Core.Descriptor;
 using Cézanne.Core.Interpolation;
 using Cézanne.Core.Service;
 using Cézanne.Core.Tests.Rule;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.IO.Compression;
 using System.Text;
@@ -11,7 +12,8 @@ namespace Cézanne.Core.Tests.Service
     [FixtureLifeCycle(LifeCycle.SingleInstance)]
     public class ArchiveReaderTests : ITempFolder
     {
-        private readonly ArchiveReader reader = new(new NullLoggerFactory(),
+        private readonly ArchiveReader reader = new(
+            new Logger<ArchiveReader>(new NullLoggerFactory()),
             new ManifestReader(new Substitutor(static _ => null, null, null)), null);
 
         public string? Temp { get; set; }

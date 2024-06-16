@@ -1,6 +1,7 @@
 using Cézanne.Core.Maven;
 using Cézanne.Core.Tests.Rule;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cézanne.Core.Tests.Maven
@@ -20,7 +21,7 @@ namespace Cézanne.Core.Tests.Maven
                         PreferLocalSettingsXml = false,
                         ForceCustomSettingsXml = true,
                         LocalRepository = Temp ?? throw new ArgumentNullException("Temp")
-                    }, new NullLoggerFactory());
+                    }, new Logger<MavenService>(new NullLoggerFactory()));
 
             Directory.CreateDirectory(Temp);
             string settings = Path.Combine(Temp, "settings.xml");
@@ -63,7 +64,7 @@ namespace Cézanne.Core.Tests.Maven
                     EnableDownload = true,
                     ReleaseRepository = mockServer.Urls.First(),
                     LocalRepository = Temp ?? throw new ArgumentNullException("Temp")
-                }, new NullLoggerFactory());
+                }, new Logger<MavenService>(new NullLoggerFactory()));
 
             string expectedLocal = Path.Combine(Temp, "io/yupiik/bundlebee/test/1.2.3/test-1.2.3.jar");
             Directory.GetParent(expectedLocal)?.Create();

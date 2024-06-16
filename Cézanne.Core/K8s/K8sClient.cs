@@ -1,3 +1,4 @@
+using Cézanne.Core.Service;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
 using System.Net;
@@ -6,18 +7,24 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace Cézanne.Core.K8s
 {
     public class K8SClient : IDisposable
     {
-        private readonly ILogger _logger;
+        private readonly ILogger<K8SClient> _logger;
+        private readonly IDeserializer _yamlDeserializer = new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .Build();
 
         private Action? _refreshAuth;
 
-        public K8SClient(K8SClientConfiguration configuration, ILoggerFactory loggerFactory)
+        public K8SClient(K8SClientConfiguration configuration, ILogger<K8SClient> logger)
         {
-            _logger = loggerFactory.CreateLogger(typeof(K8SClient));
+            _logger = logger;
 
             if (File.Exists("/var/run/secrets/kubernetes.io/serviceaccount/namespace"))
             {
@@ -135,6 +142,44 @@ namespace Cézanne.Core.K8s
 
             return await HttpClient.SendAsync(message, HttpCompletionOption.ResponseContentRead,
                 new CancellationToken());
+        }
+
+        public async Task<IEnumerable<T>> ForDescriptor<T>(string descriptorContent, string extension, Func<DescriptorItem, Task<T>> handler)
+        {
+            var json = extension switch
+            {
+                "json" => JsonSerializer.Deserialize<JsonValue>(descriptorContent, Jsons.Options),
+                _ => JsonSerializer.Deserialize<JsonValue>(JsonSerializer.Serialize(_yamlDeserializer.Deserialize<object>(descriptorContent), Jsons.Options), Jsons.Options)
+            };
+            switch (json?.GetValueKind())
+            {
+                case JsonValueKind.Array:
+                    {
+                        var results = await Task.WhenAll(json.AsArray()
+                            .GetValues<JsonObject>()
+                            .Select(async it =>
+                            {
+                                var sanitized = new DescriptorItem(it, _SanitizeJson(it));
+                                return await handler(sanitized);
+                            }));
+                        return results.ToList();
+                    }
+                case JsonValueKind.Object:
+                    {
+                        var value = json.AsObject();
+                        var sanitized = new DescriptorItem(value, _SanitizeJson(value));
+                        var result = await handler(sanitized);
+                        return [result];
+                    }
+                default:
+                    throw new InvalidOperationException($"Invalid descriptor {descriptorContent}");
+            }
+        }
+
+        private JsonObject _SanitizeJson(JsonObject value)
+        {
+            // todo: remove implicitlyDroppedValues
+            return value;
         }
 
         private string? _InitFromKubeConfig(
@@ -414,4 +459,6 @@ namespace Cézanne.Core.K8s
             return config;
         }
     }
+
+    public record DescriptorItem(JsonObject Raw, JsonObject Prepared) { }
 }

@@ -6,14 +6,13 @@ using System.IO.Compression;
 
 namespace Cézanne.Core.Service
 {
-    public class ArchiveReader(ILoggerFactory factory, ManifestReader manifestReader, MavenService? maven)
+    public class ArchiveReader(ILogger<ArchiveReader> logger, ManifestReader manifestReader, MavenService? maven)
     {
-        private readonly ILogger _logger = factory.CreateLogger<ArchiveReader>();
         protected readonly MavenService? _maven = maven;
 
         public Archive Read(string coords, string path, string? id)
         {
-            _logger.LogTrace("Reading {location}", path);
+            logger.LogTrace("Reading {location}", path);
             if (Directory.Exists(path))
             {
                 string folderManifest = Path.Combine(path, "bundlebee/manifest.json");

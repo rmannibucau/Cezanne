@@ -99,8 +99,7 @@ namespace Cézanne.Doc.JsonSchema
                 {
                     propertySchema = new JsonSchema
                     {
-                        Enum = _EnumValues(propertyType),
-                        Description = _EnumDescription(propertyType)
+                        Enum = _EnumValues(propertyType), Description = _EnumDescription(propertyType)
                     };
                     _SetSchemaType(nullable, propertySchema, JsonSchema.JsonSchemaType.String);
                 }
@@ -130,8 +129,7 @@ namespace Cézanne.Doc.JsonSchema
                     {
                         propertySchema.Items = new JsonSchema
                         {
-                            Description = _EnumDescription(propertyType),
-                            Enum = _EnumValues(propertyType)
+                            Description = _EnumDescription(propertyType), Enum = _EnumValues(propertyType)
                         };
                         _SetSchemaType(nestedIsNullable, propertySchema.Items, JsonSchema.JsonSchemaType.String);
                     }
