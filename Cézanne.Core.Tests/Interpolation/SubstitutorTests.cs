@@ -143,7 +143,8 @@ namespace Cézanne.Core.Tests.Interpolation
         [Test]
         public void Namespace()
         {
-            using K8SClient client = new(new K8SClientConfiguration(), new Logger<K8SClient>(new NullLoggerFactory()));
+            using K8SClient client = new(new K8SClientConfiguration { Kubeconfig = "skip" },
+                new Logger<K8SClient>(new NullLoggerFactory()));
             Assert.That(
                 new Substitutor(static k => null, client, null).Replace(null, null,
                     "{{bundlebee-kubernetes-namespace}}", null),

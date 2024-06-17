@@ -1,19 +1,20 @@
-namespace Cézanne.Core.Cli.Async;
-
-public sealed class Asyncs
+namespace Cézanne.Core.Cli.Async
 {
-    public static async Task All(bool chain, IEnumerable<Func<Task>> list)
+    public sealed class Asyncs
     {
-        if (chain)
+        public static async Task All(bool chain, IEnumerable<Func<Task>> list)
         {
-            foreach (var item in list)
+            if (chain)
             {
-                await item();
+                foreach (Func<Task> item in list)
+                {
+                    await item();
+                }
             }
-        }
-        else
-        {
-            await Task.WhenAll(list.Select(it => it()));
+            else
+            {
+                await Task.WhenAll(list.Select(it => it()));
+            }
         }
     }
 }

@@ -24,7 +24,7 @@ namespace Cézanne.Core.Tests.K8s
             await using (mockServer)
             {
                 using K8SClient client = new(
-                    new K8SClientConfiguration { Base = mockServer.Urls.First() },
+                    new K8SClientConfiguration { Base = mockServer.Urls.First(), Kubeconfig = "skip" },
                     new Logger<K8SClient>(new NullLoggerFactory()));
                 HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, "/test");
                 Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));

@@ -20,7 +20,7 @@ namespace Cézanne.Doc
             string docfxConf = $"{baseDir}/docfx.json";
 
             using ILoggerFactory loggerFactory = LoggerFactory.Create(b => b.AddConsole());
-            var logger = loggerFactory.CreateLogger(typeof(RenderDoc));
+            ILogger logger = loggerFactory.CreateLogger(typeof(RenderDoc));
 
             _RunPreActions(baseDir, logger);
 
@@ -55,7 +55,7 @@ namespace Cézanne.Doc
         private static void _GenerateJsonSchema(Type type, string output, ILogger logger,
             Func<Type, PropertyInfo, bool> ignores)
         {
-            JsonSchemaGenerator jsonSchemaGenerator = new JsonSchemaGenerator();
+            JsonSchemaGenerator jsonSchemaGenerator = new();
             JsonSchema.JsonSchema schema = jsonSchemaGenerator.For(type, ignores);
 
             DirectoryInfo? dir = Directory.GetParent(output);

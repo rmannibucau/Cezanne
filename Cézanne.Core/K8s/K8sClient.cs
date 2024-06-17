@@ -1,3 +1,4 @@
+using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
@@ -8,17 +9,12 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace Cézanne.Core.K8s
 {
     public class K8SClient : IDisposable
     {
         private readonly ILogger<K8SClient> _logger;
-        private readonly IDeserializer _yamlDeserializer = new DeserializerBuilder()
-            .WithNamingConvention(CamelCaseNamingConvention.Instance)
-            .Build();
 
         private Action? _refreshAuth;
 
@@ -47,9 +43,13 @@ namespace Cézanne.Core.K8s
                 baseUrl = configuration.Base;
             }
 
-            if (configuration.Kubeconfig != null)
+            string? kubeconfig = configuration.Kubeconfig ??
+                                 Environment.GetEnvironmentVariable("KUBECONFIG") ??
+                                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                                     ".kube/config");
+            if (kubeconfig != null && kubeconfig != "skip")
             {
-                KubeConfig = _LoadFromKubeConfig(configuration.Kubeconfig);
+                KubeConfig = _LoadFromKubeConfig(kubeconfig);
                 if (KubeConfig != null)
                 {
                     baseUrl = _InitFromKubeConfig(HttpMessageHandler, HttpClient.DefaultRequestHeaders) ??
@@ -126,7 +126,10 @@ namespace Cézanne.Core.K8s
             }
         }
 
-        public async Task<HttpResponseMessage> SendAsync(HttpMethod method, string relativeUri, string? content = null,
+        public async Task<HttpResponseMessage> SendAsync(
+            HttpMethod method,
+            string relativeUri,
+            string? content = null,
             string? contentType = null)
         {
             _refreshAuth?.Invoke();
@@ -134,45 +137,126 @@ namespace Cézanne.Core.K8s
             HttpRequestMessage message = new(method, relativeUri);
             if (content is not null)
             {
-                message.Content =
-                    new StringContent(content, Encoding.UTF8, HttpClient.DefaultRequestHeaders.Accept.First());
-                message.Content.Headers.ContentType =
-                    new MediaTypeHeaderValue(contentType ?? "application/json") { CharSet = "UTF-8" };
+                MediaTypeHeaderValue json = new(contentType ?? "application/json") { CharSet = "UTF-8" };
+                message.Content = new StringContent(content, Encoding.UTF8, json);
+                message.Content.Headers.ContentType = json;
             }
 
             return await HttpClient.SendAsync(message, HttpCompletionOption.ResponseContentRead,
                 new CancellationToken());
         }
 
-        public async Task<IEnumerable<T>> ForDescriptor<T>(string descriptorContent, string extension, Func<DescriptorItem, Task<T>> handler)
+        public string ToBaseUri(JsonObject prepared)
         {
-            var json = extension switch
+            string kindLowerCased = prepared["kind"]!.ToString().ToLowerInvariant() + 's';
+            // todo: await ensureResourceSpec(desc, kindLoaded)
+            JsonObject metadata = prepared["metadata"]!.AsObject();
+            JsonNode? namespaceValue =
+                metadata.TryGetPropertyValue("namespace", out JsonNode? ns) ? ns : DefaultNamespace;
+
+            // todo: io.yupiik.bundlebee.core.kube.KubeClient#toBaseUri once ensureResourceSpec is done
+            string nsSegment = _IsSkipNameSpace(kindLowerCased) ? "" : "/namespaces/" + namespaceValue + '/';
+            string prefix = _FindApiPrefix(kindLowerCased, prepared);
+            prefix = prefix.StartsWith('/') ? prefix[1..] : prefix;
+            return $"{Base}{prefix}{nsSegment}{kindLowerCased}";
+        }
+
+        public async Task<IEnumerable<T>> ForDescriptor<T>(string descriptorContent, string extension,
+            Func<DescriptorItem, Task<T>> handler)
+        {
+            try
             {
-                "json" => JsonSerializer.Deserialize<JsonValue>(descriptorContent, Jsons.Options),
-                _ => JsonSerializer.Deserialize<JsonValue>(JsonSerializer.Serialize(_yamlDeserializer.Deserialize<object>(descriptorContent), Jsons.Options), Jsons.Options)
+                JsonNode? json = extension switch
+                {
+                    "json" => JsonSerializer.Deserialize<JsonNode>(descriptorContent, Jsons.Options),
+                    _ => Jsons.FromYaml(descriptorContent)
+                };
+                switch (json?.GetValueKind())
+                {
+                    case JsonValueKind.Array:
+                        {
+                            T[] results = await Task.WhenAll(json.AsArray()
+                                .GetValues<JsonObject>()
+                                .Select(async it =>
+                                {
+                                    DescriptorItem sanitized = new(it, _SanitizeJson(it));
+                                    return await handler(sanitized);
+                                }));
+                            return results.ToList();
+                        }
+                    case JsonValueKind.Object:
+                        {
+                            JsonObject value = json.AsObject();
+                            DescriptorItem sanitized = new(value, _SanitizeJson(value));
+                            T result = await handler(sanitized);
+                            return [result];
+                        }
+                    default:
+                        throw new InvalidOperationException($"Invalid descriptor {descriptorContent}");
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError("Can't read\n{Descriptor}\n\n{Exception}", descriptorContent, e);
+                throw;
+            }
+        }
+
+        private bool _IsSkipNameSpace(string kindLowerCased)
+        {
+            return kindLowerCased is "nodes" or "persistentvolumes" or "clusterroles" or "clusterrolebindings";
+        }
+
+        private string _FindApiPrefix(string kindLowerCased, JsonObject desc)
+        {
+            return kindLowerCased switch
+            {
+                "deployments" or "statefulsets" or "daemonsets" or "replicasets" or "controllerrevisions" =>
+                    "/apis/apps/v1",
+                "cronjobs" => "/apis/batch/v1beta1",
+                "apiservices" => "/apis/apiregistration.k8s.io/v1",
+                "customresourcedefinitions" => "/apis/apiextensions.k8s.io/v1beta1",
+                "mutatingwebhookconfigurations" or "validatingwebhookconfigurations" =>
+                    "/apis/admissionregistration.k8s.io/v1",
+                "roles" or "rolebindings" or "clusterroles" or "clusterrolebindings" => "/apis/" + desc["apiVersion"]!,
+                _ => "/api/v1"
             };
-            switch (json?.GetValueKind())
+        }
+
+        public async Task WithRetry(DateTime expiration,
+            LoadedDescriptor descriptor,
+            string timeoutMarker,
+            Func<Task<bool>> evaluator)
+        {
+            while (true)
             {
-                case JsonValueKind.Array:
+                _logger.LogTrace("waiting for {Descriptor}", descriptor);
+                bool result = false;
+                try
+                {
+                    result = await evaluator();
+                    if (result)
                     {
-                        var results = await Task.WhenAll(json.AsArray()
-                            .GetValues<JsonObject>()
-                            .Select(async it =>
-                            {
-                                var sanitized = new DescriptorItem(it, _SanitizeJson(it));
-                                return await handler(sanitized);
-                            }));
-                        return results.ToList();
+                        _logger.LogTrace("Awaited for {Descriptor}, succeeded", descriptor);
+                        return;
                     }
-                case JsonValueKind.Object:
+                }
+                catch (Exception e)
+                {
+                    _logger.LogTrace("waiting for {Descriptor}: {Error}", descriptor, e);
+                }
+
+                if (!result)
+                {
+                    if (DateTime.UtcNow > expiration)
                     {
-                        var value = json.AsObject();
-                        var sanitized = new DescriptorItem(value, _SanitizeJson(value));
-                        var result = await handler(sanitized);
-                        return [result];
+                        throw new InvalidOperationException(
+                            $"Timeout on condition: {descriptor.Configuration} reached: {timeoutMarker}");
                     }
-                default:
-                    throw new InvalidOperationException($"Invalid descriptor {descriptorContent}");
+
+                    _logger.LogTrace("Will retry awaiting for {Descriptor}", descriptor);
+                    Thread.Sleep(500); // todo: configuration
+                }
             }
         }
 
@@ -199,7 +283,9 @@ namespace Cézanne.Core.K8s
                 return null;
             }
 
-            KubeConfig.NamedContext context = KubeConfig.Contexts.First(it => it.Name == KubeConfig.CurrentContext);
+            KubeConfig.NamedContext context =
+                KubeConfig.Contexts.FirstOrDefault(it => it?.Name == KubeConfig.CurrentContext, null) ??
+                throw new InvalidOperationException("No kubeconfig context available");
             if (context is not { Name: not null, Context: { User: not null, Cluster: not null } })
             {
                 _logger.LogDebug("Skipping kubeconfig - no data");
@@ -460,5 +546,7 @@ namespace Cézanne.Core.K8s
         }
     }
 
-    public record DescriptorItem(JsonObject Raw, JsonObject Prepared) { }
+    public record DescriptorItem(JsonObject Raw, JsonObject Prepared)
+    {
+    }
 }

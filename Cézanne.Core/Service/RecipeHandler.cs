@@ -199,11 +199,6 @@ namespace Cézanne.Core.Service
             IDictionary<string, string> placeholders,
             string? id)
         {
-            if (currentPatches.Count == 0)
-            {
-                return desc;
-            }
-
             return substitutor.WithContext(placeholders, () =>
             {
                 string content = desc.Content;
@@ -245,10 +240,10 @@ namespace Cézanne.Core.Service
 
                     try
                     {
-                        object? json = desc.Extension switch
+                        JsonNode? json = desc.Extension switch
                         {
-                            "json" => JsonSerializer.Deserialize<JsonValue>(desc.Content, Jsons.Options),
-                            _ => _yamlDeserializer.Deserialize<object>(desc.Content)
+                            "json" => JsonSerializer.Deserialize<JsonNode>(desc.Content, Jsons.Options),
+                            _ => Jsons.FromYaml(desc.Content)
                         };
                         content = JsonSerializer.Serialize(jsonPatch.Apply(json), Jsons.Options);
                     }
@@ -265,7 +260,7 @@ namespace Cézanne.Core.Service
                         content = substitutor.Replace(from, desc, content, id);
                         alreadyInterpolated = true;
                         content = JsonSerializer.Serialize(
-                            jsonPatch.Apply(JsonSerializer.Deserialize<JsonValue>(content, Jsons.Options)));
+                            jsonPatch.Apply(JsonSerializer.Deserialize<JsonNode>(content, Jsons.Options)));
                     }
                 }
 
@@ -280,8 +275,8 @@ namespace Cézanne.Core.Service
 
         private IEnumerable<IEnumerable<LoadedDescriptor>> _RankDescriptors(IEnumerable<LoadedDescriptor> descriptors)
         {
-            var rankedDescriptors = new List<IEnumerable<LoadedDescriptor>>(1 /*generally 1 or 2*/);
-            var current = new List<LoadedDescriptor>();
+            List<IEnumerable<LoadedDescriptor>> rankedDescriptors = new(1 /*generally 1 or 2*/);
+            List<LoadedDescriptor> current = new();
             foreach (LoadedDescriptor desc in descriptors)
             {
                 current.Add(desc);
@@ -497,7 +492,9 @@ namespace Cézanne.Core.Service
             ArchiveReader.Archive archive = await cache.LoadArchive(from, id);
             Manifest.Recipe selectedRecipe = recipe == "auto" && archive.Manifest.Recipes.Count() == 1
                 ? archive.Manifest.Recipes.First()
-                : archive.Manifest.Recipes.Where(it => it.Name == recipe).First();
+                : archive.Manifest.Recipes.FirstOrDefault(it => it?.Name == recipe, null) ??
+                  throw new InvalidOperationException(
+                      $"No alveolus {recipe} found in '{from}' (available: {string.Join(", ", archive.Manifest.Recipes.Select(it => it.Name))})");
             foreach (Manifest.Descriptor descriptor in selectedRecipe.Descriptors ?? [])
             {
                 descriptor.Location ??= from;

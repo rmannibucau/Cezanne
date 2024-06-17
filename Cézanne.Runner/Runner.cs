@@ -1,27 +1,27 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using Cézanne.Core.K8s;
-using Microsoft.Extensions.Logging;
+﻿using Cézanne.Core.Cli;
+using System.Diagnostics;
 
 namespace Cézanne.Runner
 {
     public static class Runner
     {
-        private static async Task Main(string[] args)
+        private static int Main(string[] args)
         {
-            // todo: rewrite, this was to test minikube
-            using var factory = LoggerFactory.Create(b => b.AddConsole());
-            using K8SClient client = new(
-                new K8SClientConfiguration
+            _BreakIfDebug();
+            return new Cezanne().Run(args);
+        }
+
+        private static void _BreakIfDebug()
+        {
+            if ((Environment.GetEnvironmentVariable("CEZANNE_DEBUG") ?? "false") == "true")
+            {
+                while (!Debugger.IsAttached)
                 {
-                    Kubeconfig = Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "/root", ".kube/config")
-                },
-                new Logger<K8SClient>(factory));
-            HttpResponseMessage api = await client.SendAsync(HttpMethod.Get, "api/v1");
-            string apiResponse = await api.Content.ReadAsStringAsync();
-            Console.WriteLine(api.StatusCode);
-            Console.WriteLine(api.Headers);
-            Console.WriteLine(apiResponse);
+                    Thread.Sleep(1_000);
+                }
+
+                Debugger.Break();
+            }
         }
     }
 }

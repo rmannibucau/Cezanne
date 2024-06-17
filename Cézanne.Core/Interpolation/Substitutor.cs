@@ -19,7 +19,11 @@ namespace Cézanne.Core.Interpolation
 {
     // probably not the best bet but has some history in Yupiik bundlebee and minimum is to inherit from this behavior
     // todo: enhance to behave more as a c# interpolation
-    public sealed class Substitutor([FromKeyedServices("cezannePlaceholderLookupCallback")] Func<string, string?, string?> lookup, K8SClient? k8s, MavenService? maven)
+    public sealed class Substitutor(
+        [FromKeyedServices("cezannePlaceholderLookupCallback")]
+        Func<string, string?, string?> lookup,
+        K8SClient? k8s,
+        MavenService? maven)
     {
         private const char Escape = '\\';
         private const string Prefix = "{{";

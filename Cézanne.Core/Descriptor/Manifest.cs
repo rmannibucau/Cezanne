@@ -11,30 +11,25 @@ namespace Cézanne.Core.Descriptor
     {
         public enum AwaitConditionType
         {
-            [JsonPropertyName("JSON_POINTER")]
-            [Description("JSON Pointer evaluation (fully custom).")]
+            [JsonPropertyName("JSON_POINTER")] [Description("JSON Pointer evaluation (fully custom).")]
             JsonPointer,
 
-            [JsonPropertyName("STATUS_CONDITION")]
-            [Description("Evaluate items in `/status/conditions`.")]
+            [JsonPropertyName("STATUS_CONDITION")] [Description("Evaluate items in `/status/conditions`.")]
             StatusCondition
         }
 
         public enum ConditionOperator
         {
-            [Description("At least one condition must match.")]
-            [JsonPropertyName("ANY")]
+            [Description("At least one condition must match.")] [JsonPropertyName("ANY")]
             Any,
 
-            [Description("All conditions must match.")]
-            [JsonPropertyName("ALL")]
+            [Description("All conditions must match.")] [JsonPropertyName("ALL")]
             All
         }
 
         public enum ConditionType
         {
-            [Description("Key is read from process environment variables.")]
-            [JsonPropertyName("ENV")]
+            [Description("Key is read from process environment variables.")] [JsonPropertyName("ENV")]
             Env,
 
             [Description("Key is read from application settings, either `cezanne` section or `AppSettings`.")]
@@ -44,20 +39,16 @@ namespace Cézanne.Core.Descriptor
 
         public enum JsonPointerOperator
         {
-            [JsonPropertyName("EXISTS")]
-            [Description("JSON Pointer exists model.")]
+            [JsonPropertyName("EXISTS")] [Description("JSON Pointer exists model.")]
             Exists,
 
-            [JsonPropertyName("MISSING")]
-            [Description("JSON Pointer does not exist in the resource model.")]
+            [JsonPropertyName("MISSING")] [Description("JSON Pointer does not exist in the resource model.")]
             Missing,
 
-            [JsonPropertyName("EQUALS")]
-            [Description("JSON Pointer value is equal to (stringified comparison) value.")]
+            [JsonPropertyName("EQUALS")] [Description("JSON Pointer value is equal to (stringified comparison) value.")]
             EqualsValue,
 
-            [JsonPropertyName("NOT_EQUALS")]
-            [Description("JSON Pointer is different from the provided value.")]
+            [JsonPropertyName("NOT_EQUALS")] [Description("JSON Pointer is different from the provided value.")]
             NotEquals,
 
             [JsonPropertyName("EQUALS_IGNORE_CASE")]
@@ -68,8 +59,7 @@ namespace Cézanne.Core.Descriptor
             [Description("JSON Pointer is different (ignoring case) from the provided value.")]
             NotEqualsIgnoreCase,
 
-            [JsonPropertyName("CONTAINS")]
-            [Description("JSON Pointer contains the configured value.")]
+            [JsonPropertyName("CONTAINS")] [Description("JSON Pointer contains the configured value.")]
             Contains
         }
 
@@ -334,8 +324,9 @@ namespace Cézanne.Core.Descriptor
             [Description("List of condition to match according `operator`.")]
             public IEnumerable<AwaitCondition> Conditions { get; set; } = [];
 
-            [Description("Command to apply these conditions to, if not set it will be applied on `apply` command only. " +
-                    "Note that for now only `apply` and `delete` commands are supported, others will be ignored.")]
+            [Description(
+                "Command to apply these conditions to, if not set it will be applied on `apply` command only. " +
+                "Note that for now only `apply` and `delete` commands are supported, others will be ignored.")]
             public string Command { get; set; } = "apply";
 
             protected bool Equals(AwaitConditions other)
@@ -488,7 +479,8 @@ namespace Cézanne.Core.Descriptor
             protected bool Equals(Descriptor other)
             {
                 return Type == other.Type && Name == other.Name && Location == other.Location && Await == other.Await &&
-                       AwaitOnDelete == other.AwaitOnDelete && (AwaitConditions ?? []).SequenceEqual(other.AwaitConditions ?? []) &&
+                       AwaitOnDelete == other.AwaitOnDelete &&
+                       (AwaitConditions ?? []).SequenceEqual(other.AwaitConditions ?? []) &&
                        Interpolate == other.Interpolate && Equals(IncludeIf, other.IncludeIf);
             }
 

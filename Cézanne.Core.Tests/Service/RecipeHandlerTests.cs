@@ -31,7 +31,7 @@ namespace Cézanne.Core.Tests.Service
                 await recipeHandler.FindRootRecipes(zipLocation, null, "test", "test");
             Assert.That(recipes.Count(), Is.EqualTo(1));
 
-            List<LoadedDescriptor> visited = new List<LoadedDescriptor>();
+            List<LoadedDescriptor> visited = new();
             foreach (RecipeHandler.RecipeContext recipe in
                      recipes) // todo: add some descriptor to the recipe to test it
             {
@@ -118,10 +118,10 @@ namespace Cézanne.Core.Tests.Service
 
         private (MavenService, RecipeHandler, ArchiveReader) _NewServices()
         {
-            LoggerFactory loggerFactory = new LoggerFactory();
-            Substitutor substitutor = new Substitutor(static _ => null, null, null);
-            ManifestReader manifestReader = new ManifestReader(substitutor);
-            MavenService maven = new MavenService(
+            LoggerFactory loggerFactory = new();
+            Substitutor substitutor = new(static _ => null, null, null);
+            ManifestReader manifestReader = new(substitutor);
+            MavenService maven = new(
                 new MavenConfiguration
                 {
                     ForceCustomSettingsXml = true,
