@@ -197,7 +197,7 @@ namespace Cézanne.Core.Interpolation
         {
             return varName switch
             {
-                "bundlebee-kubernetes-namespace" => _DefaultKubernetesNamespace(),
+                "bundlebee-kubernetes-namespace" => k8s?.DefaultNamespace ?? "default",
                 "timestamp" => (DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds.ToString(CultureInfo
                     .InvariantCulture),
                 "timestampSec" => (DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds.ToString(CultureInfo
@@ -509,7 +509,7 @@ namespace Cézanne.Core.Interpolation
             do
             {
                 iterations++;
-                HttpResponseMessage? result = k8s
+                using HttpResponseMessage? result = k8s
                     ?.SendAsync(HttpMethod.Get, $"/api/v1/namespaces/{namespaceValue}/serviceaccounts/{account}")
                     .GetAwaiter()
                     .GetResult();
@@ -529,7 +529,7 @@ namespace Cézanne.Core.Interpolation
                 {
                     JsonObject selectedSecret =
                         objs.First(it => it["name"]?.ToString().StartsWith(secretPrefix) ?? false);
-                    HttpResponseMessage? secretResponse = k8s?.SendAsync(HttpMethod.Get,
+                    using HttpResponseMessage? secretResponse = k8s?.SendAsync(HttpMethod.Get,
                             $"/api/v1/namespaces/{namespaceValue}/serviceaccounts/{selectedSecret["name"]}")
                         .GetAwaiter()
                         .GetResult();
@@ -582,12 +582,6 @@ namespace Cézanne.Core.Interpolation
                 "SHA512" => SHA512.Create(),
                 _ => throw new ArgumentException($"Unkown digest '{digestAlgo}'")
             };
-        }
-
-        // todo: when app starts to be wired use the http client/configuration?
-        private string? _DefaultKubernetesNamespace()
-        {
-            return "default";
         }
     }
 }

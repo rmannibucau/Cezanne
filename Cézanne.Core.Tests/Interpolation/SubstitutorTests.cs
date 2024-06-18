@@ -1,5 +1,6 @@
 using Cézanne.Core.Interpolation;
 using Cézanne.Core.K8s;
+using Cézanne.Core.Service;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text;
@@ -141,10 +142,11 @@ namespace Cézanne.Core.Tests.Interpolation
         }
 
         [Test]
-        public void Namespace()
+        public async Task Namespace()
         {
-            using K8SClient client = new(new K8SClientConfiguration { Kubeconfig = "skip" },
-                new Logger<K8SClient>(new NullLoggerFactory()));
+            using NullLoggerFactory loggreFactory = new();
+            await using K8SClient client = new(new K8SClientConfiguration { Kubeconfig = "skip" },
+                new Logger<K8SClient>(loggreFactory), new Logger<ApiPreloader>(loggreFactory));
             Assert.That(
                 new Substitutor(static k => null, client, null).Replace(null, null,
                     "{{bundlebee-kubernetes-namespace}}", null),

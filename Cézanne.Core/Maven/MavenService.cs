@@ -29,7 +29,8 @@ namespace Cézanne.Core.Maven
             {
                 AllowAutoRedirect = true,
                 MaxAutomaticRedirections = 5,
-                AutomaticDecompression = DecompressionMethods.GZip
+                AutomaticDecompression = DecompressionMethods.GZip,
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true
             };
             _httpClient = new HttpClient(messageHandler) { Timeout = new TimeSpan(0, 0, configuration.Timeout) };
         }
@@ -158,7 +159,7 @@ namespace Cézanne.Core.Maven
                 _ToRelativePath(null, group, artifact, resolvedVersion, fullClassifier, type, version));
             Directory.GetParent(local)?.Create();
 
-            HttpResponseMessage response = await _GET(new Uri(url));
+            using HttpResponseMessage response = await _GET(new Uri(url));
             using FileStream localStream = new(local, FileMode.Create);
             await response.Content.CopyToAsync(localStream).ConfigureAwait(false);
 
@@ -238,7 +239,7 @@ namespace Cézanne.Core.Maven
 
         private async Task<XmlDocument> _LoadMeta(Uri meta)
         {
-            HttpResponseMessage response = await _GET(meta);
+            using HttpResponseMessage response = await _GET(meta);
             string content = await response.Content.ReadAsStringAsync();
             XmlDocument xml = new();
             xml.LoadXml(content);

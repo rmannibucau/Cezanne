@@ -5,6 +5,7 @@ using Json.Patch;
 using Json.Pointer;
 using Microsoft.Extensions.Logging;
 using Spectre.Console.Cli;
+using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Net;
 using System.Text.Json;
@@ -17,7 +18,8 @@ namespace Cézanne.Core.Cli.Command
         K8SClient client,
         ArchiveReader archiveReader,
         RecipeHandler recipeHandler,
-        ConditionAwaiter conditionAwaiter) : AsyncCommand<ApplyCommand.Settings>
+        ConditionAwaiter conditionAwaiter,
+        ContainerSanitizer sanitizer) : AsyncCommand<ApplyCommand.Settings>
     {
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
@@ -48,7 +50,8 @@ namespace Cézanne.Core.Cli.Command
 
                                     string kind = item.Prepared["kind"]!.ToString().ToLowerInvariant() + 's';
                                     return await _DoApply(item.Prepared, kind, 1, settings.DryRun,
-                                        settings.FieldValidation ?? "skip");
+                                        settings.FieldValidation ?? "skip",
+                                        settings.StatefulSetSpecUpdatableAttributes ?? ImmutableHashSet<string>.Empty);
                                 });
                             },
                             cache,
@@ -64,7 +67,7 @@ namespace Cézanne.Core.Cli.Command
         }
 
         private async Task<bool> _DoApply(JsonObject prepared, string kind, int retries, bool dryRun,
-            string fieldValidation)
+            string fieldValidation, ISet<string> statefulSetsAllowedSpecAttributes)
         {
             JsonObject metadata = prepared["metadata"]!.AsObject();
             string name = metadata["name"]!.ToString();
@@ -73,24 +76,29 @@ namespace Cézanne.Core.Cli.Command
                 : client.DefaultNamespace;
             logger.LogInformation("Applying {kind} '{Name}' on namespace '{Namespace}'", name, ns, kind[..^1]);
 
-            string baseUri = client.ToBaseUri(prepared);
+            string baseUri = await client.ToBaseUri(prepared);
             string completeUri = baseUri + '/' + name;
 
-            HttpResponseMessage findResponse = await client.SendAsync(HttpMethod.Get, completeUri);
+            using HttpResponseMessage findResponse = await client.SendAsync(HttpMethod.Get, completeUri);
             if (findResponse.StatusCode > HttpStatusCode.NotFound)
             {
                 string error = await findResponse.Content.ReadAsStringAsync();
                 throw new InvalidOperationException($"Can't apply {completeUri}: {error}");
             }
 
-            string queryParams = "?fieldManager=kubectl-client-side-apply" + (dryRun ? "" : "&dryRun=All") +
+            string queryParams = "?fieldManager=kubectl-client-side-apply" +
+                                 (dryRun ? "" : "&dryRun=All") +
                                  ("skip" == fieldValidation ? "" : "&fieldValidation=" + fieldValidation);
             string uriWithQuery = $"{completeUri}{queryParams}";
+
+            if (sanitizer.CanSanitizeCpuResource(kind))
+            {
+                prepared = sanitizer.DropCpuResources(kind, prepared);
+            }
 
             if (findResponse.StatusCode == HttpStatusCode.OK)
             {
                 logger.LogTrace("{Namespace}/{Name} already exist, updating it", ns ?? "-", name);
-                // todo: filterForApply + needsUpdate check
 
                 if (kind != "persistentvolumeclaims")
                 {
@@ -103,6 +111,23 @@ namespace Cézanne.Core.Cli.Command
                             .Apply(payload).Result!.AsObject();
                     }
 
+                    if ("statefulsets" == kind && statefulSetsAllowedSpecAttributes.Any())
+                    {
+                        JsonObject? spec = payload.TryGetPropertyValue("spec", out JsonNode? sss)
+                            ? sss!.AsObject()
+                            : null;
+                        if (spec is not null)
+                        {
+                            foreach (KeyValuePair<string, JsonNode?> attr in spec.ToImmutableList())
+                            {
+                                if (!statefulSetsAllowedSpecAttributes.Contains(attr.Key))
+                                {
+                                    spec.Remove(attr.Key);
+                                }
+                            }
+                        }
+                    }
+
                     prepared["metadata"]!.AsObject().TryGetPropertyValue("annotations", out JsonNode? annotations);
                     if (annotations is not null)
                     {
@@ -110,7 +135,7 @@ namespace Cézanne.Core.Cli.Command
                                 .TryGetPropertyValue("io.yupiik.bundlebee/force", out JsonNode? force) &&
                             force?.GetValueKind() == JsonValueKind.True)
                         {
-                            HttpResponseMessage deleteResponse = await client.SendAsync(
+                            using HttpResponseMessage deleteResponse = await client.SendAsync(
                                 HttpMethod.Delete, completeUri + "?gracePeriodSeconds=-1",
                                 "{\"kind\":\"DeleteOptions\",\"apiVersion\":\"v1\",\"propagationPolicy\":\"Foreground\"}",
                                 "application/json");
@@ -123,7 +148,7 @@ namespace Cézanne.Core.Cli.Command
                             {
                                 while (true)
                                 {
-                                    HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, completeUri);
+                                    using HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, completeUri);
                                     logger.LogTrace("{Namespace}/{Name} deletion:{Response}", ns ?? "-", name,
                                         response);
                                     if (response.StatusCode == HttpStatusCode.NotFound)
@@ -132,7 +157,7 @@ namespace Cézanne.Core.Cli.Command
                                     }
                                 }
 
-                                HttpResponseMessage putAfterDeleteResponse = await client.SendAsync(
+                                using HttpResponseMessage putAfterDeleteResponse = await client.SendAsync(
                                     HttpMethod.Put, uriWithQuery,
                                     JsonSerializer.Serialize(payload, Jsons.Options), "application/json");
                                 return putAfterDeleteResponse.StatusCode switch
@@ -148,7 +173,7 @@ namespace Cézanne.Core.Cli.Command
                                 .TryGetPropertyValue("io.yupiik.bundlebee/putOnUpdate", out JsonNode? update) &&
                             update?.GetValueKind() == JsonValueKind.True)
                         {
-                            HttpResponseMessage putResponse = await client.SendAsync(HttpMethod.Put, uriWithQuery,
+                            using HttpResponseMessage putResponse = await client.SendAsync(HttpMethod.Put, uriWithQuery,
                                 JsonSerializer.Serialize(payload, Jsons.Options), "application/json");
                             return putResponse.StatusCode switch
                             {
@@ -173,18 +198,19 @@ namespace Cézanne.Core.Cli.Command
                             JsonSerializer.Serialize(payload, Jsons.Options), "application/merge-patch+json");
                     }
 
+using (patchResponse) {
                     return patchResponse.StatusCode switch
                     {
                         HttpStatusCode.OK or HttpStatusCode.Created => true,
                         _ => throw new InvalidOperationException($"Can't patch {completeUri}: {patchResponse}")
                     };
+}
                 }
             }
 
-            // todo: container sanitizer
             logger.LogTrace("{Name} ({Kind}) does not exist, creating it", name, kind);
 
-            HttpResponseMessage postResponse = await client.SendAsync(HttpMethod.Post, baseUri,
+            using HttpResponseMessage postResponse = await client.SendAsync(HttpMethod.Post, baseUri,
                 JsonSerializer.Serialize(prepared, Jsons.Options), "application/json");
             if (postResponse.StatusCode == HttpStatusCode.Conflict && retries > 0)
             {
@@ -196,7 +222,8 @@ namespace Cézanne.Core.Cli.Command
                     obj!.TryGetPropertyValue("details", out JsonNode? details) && details is not null &&
                     details.AsObject()["kind"]?.ToString() == "serviceaccounts")
                 {
-                    return await _DoApply(prepared, kind, retries - 1, dryRun, fieldValidation);
+                    return await _DoApply(prepared, kind, retries - 1, dryRun, fieldValidation,
+                        statefulSetsAllowedSpecAttributes);
                 }
             }
 
@@ -267,13 +294,19 @@ namespace Cézanne.Core.Cli.Command
             [Description("Should `dryRun=All` query parameter be set.")]
             [CommandOption("--dry-run")]
             [DefaultValue("false")]
-            public bool DryRun { get; set; }
+            public bool DryRun { get; set; } = false;
 
             [Description(
                 "`fieldValidation` - server side validation - value when applying a descriptor, values can be `Strict`, `Warn` pr `Ignore`. Note that using `skip` will ignore the query parameter.")]
             [CommandOption("--field-validation")]
             [DefaultValue("Strict")]
             public string? FieldValidation { get; set; }
+
+            [Description("List of fields allowed for `StatefulSet` updates - all are not updatable.")]
+            [CommandOption("--update-statefulset-spec-attributes")]
+            [DefaultValue(
+                "replicas,template,updateStrategy,persistentVolumeClaimRetentionPolicy,minReadySeconds,serviceName,selector")]
+            public ISet<string>? StatefulSetSpecUpdatableAttributes { get; set; }
         }
     }
 }

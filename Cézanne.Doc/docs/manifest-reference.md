@@ -12,6 +12,10 @@ You can reference the manifest JSON-Schema in your `manifest.json` files by addi
 }
 ```
 
+> [!NOTE]
+> For compatibility with Yupiik BundleBee, `alveoli` attribute is supported instead of `recipes` but is not mentionned in the schema for now.
+
+
 Here is its content:
 
 [!code-json[](./generated/schema/manifest.jsonschema.json)]

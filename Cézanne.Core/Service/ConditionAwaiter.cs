@@ -51,8 +51,8 @@ namespace Cézanne.Core.Service
                     async item =>
                     {
                         string name = item.Prepared["metadata"]!.AsObject()["name"]!.ToString();
-                        string baseUri = client.ToBaseUri(item.Prepared) + '/' + name;
-                        HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, baseUri + "/" + name);
+                        string baseUri = await client.ToBaseUri(item.Prepared) + '/' + name;
+                        using HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, baseUri + "/" + name);
                         return response.IsSuccessStatusCode;
                     });
                 return (result.Count() == 1 && result.First()) == expected;
@@ -80,11 +80,18 @@ namespace Cézanne.Core.Service
                     async item =>
                     {
                         string name = item.Prepared["metadata"]!.AsObject()["name"]!.ToString();
-                        string baseUri = client.ToBaseUri(item.Prepared) + '/' + name;
+                        string baseUri = await client.ToBaseUri(item.Prepared) + '/' + name;
                         HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, baseUri);
-                        return response.IsSuccessStatusCode &&
-                               (response.Headers.TryGetValues("x-dry-run", out IEnumerable<string>? dryRun) ||
-                                await _Evaluate(condition, response));
+                        try
+                        {
+                            return response.IsSuccessStatusCode &&
+                                   (response.Headers.TryGetValues("x-dry-run", out IEnumerable<string>? dryRun) ||
+                                    await _Evaluate(condition, response));
+                        }
+                        finally
+                        {
+                            response.Dispose();
+                        }
                     });
                 return (result ?? []).FirstOrDefault(false);
             }

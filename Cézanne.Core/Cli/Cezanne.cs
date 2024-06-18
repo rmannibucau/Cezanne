@@ -17,7 +17,7 @@ namespace Cézanne.Core.Cli
 
         public int Run(string[] args)
         {
-            using Registrar container = _CreateContainer();
+            using Registrar container = _CreateContainer(args);
             return _Cli(container, args);
         }
 
@@ -34,13 +34,16 @@ namespace Cézanne.Core.Cli
 
                 config.SetApplicationName("cezanne");
 
-                config.AddCommand<ApplyCommand>("apply");
+                config.AddCommand<ApplyCommand>("apply")
+                    .WithDescription("Apply/deploy a set of descriptors from a root one.");
+                config.AddCommand<DeleteCommand>("delete")
+                    .WithDescription("Delete an alveolus deployment by deleting all related descriptors.");
             });
             return app.Run(args);
         }
 
 
-        private Registrar _CreateContainer()
+        private Registrar _CreateContainer(string[] args)
         {
             ServiceCollection services = new();
 
@@ -54,6 +57,7 @@ namespace Cézanne.Core.Cli
             IConfigurationRoot binder = new ConfigurationBuilder()
                 .AddJsonFile("cezanne.json", true)
                 .AddEnvironmentVariables("CEZANNE_")
+                .AddCommandLine(args)
                 .Build();
             IConfigurationSection cezanneSection = binder.GetSection("cezanne");
 
@@ -78,9 +82,10 @@ namespace Cézanne.Core.Cli
 
             // services
             services.AddKeyedSingleton("cezannePlaceholderLookupCallback", placeholders);
-            services.AddSingleton(typeof(K8SClientConfiguration), k8s);
+            services.AddSingleton(k8s);
             services.AddSingleton(maven);
             services.AddSingleton<K8SClient>();
+            services.AddSingleton<ApiPreloader>();
             services.AddSingleton<Substitutor>();
             services.AddSingleton<MavenService>();
             services.AddSingleton<ConditionEvaluator>();
@@ -89,10 +94,12 @@ namespace Cézanne.Core.Cli
             services.AddSingleton<RequirementService>();
             services.AddSingleton<ManifestReader>();
             services.AddSingleton<ArchiveReader>();
+            services.AddSingleton<ContainerSanitizer>();
             services.AddSingleton<RecipeHandler>();
 
             // commands
             services.AddSingleton<ApplyCommand>();
+            services.AddSingleton<DeleteCommand>();
 
             return new Registrar(services);
         }

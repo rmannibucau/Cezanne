@@ -1,4 +1,6 @@
-﻿using Cézanne.Core.Descriptor;
+﻿using Cézanne.Core.Cli;
+using Cézanne.Core.Descriptor;
+using Cézanne.Core.Lang;
 using Cézanne.Doc.JsonSchema;
 using Docfx;
 using Markdig;
@@ -7,7 +9,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.ComponentModel;
+using System.Globalization;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 
 namespace Cézanne.Doc
@@ -50,6 +55,77 @@ namespace Cézanne.Doc
                 $"{baseDir}/docs/generated/schema/manifest.jsonschema.json",
                 logger,
                 (type, property) => type == manifestType && property.Name == "Alveoli");
+
+            _GenerateEnvironmentConfiguration($"{baseDir}/docs/generated/configuration/properties.json", logger);
+        }
+
+        private static void _GenerateEnvironmentConfiguration(string output, ILogger logger)
+        {
+            var md = new List<string>();
+            foreach (var type in typeof(Cezanne).Assembly.GetTypes())
+            {
+                if (type.GetCustomAttributes(typeof(ConfigurationPrefixAttribute), false).Length > 0)
+                {
+                    md.Add(_GenerateEnvironmentConfigurationFor(type));
+                }
+            }
+
+            if (md.Count > 0)
+            {
+                DirectoryInfo? dir = Directory.GetParent(output);
+                if (dir?.Exists is false)
+                {
+                    Directory.CreateDirectory(dir.FullName);
+                }
+
+                md.Sort();
+                File.WriteAllText(output, string.Join('\n', md));
+                logger.LogInformation("Wrote '{output}'", output);
+            }
+            else
+            {
+                logger.LogWarning("No [ConfigurationPrefix] found");
+            }
+        }
+
+        // todo: rmannibucau completion generation
+        private static string _GenerateEnvironmentConfigurationFor(Type type)
+        {
+            var prefix = type.GetCustomAttribute<ConfigurationPrefixAttribute>()!.Value;
+
+            var builder = new StringBuilder();
+            builder.Append("## ").Append(new CultureInfo("en-us", false).TextInfo.ToTitleCase(prefix)).Append("\n\n");
+
+            var envVarPrefix = "CEZANNE__" + prefix.ToUpperInvariant() + "__";
+            var cliPrefix = "--cezanne:" + prefix + ":";
+            var referenceInstance = Activator.CreateInstance(type);
+            foreach (var prop in type.GetProperties().Where(it => it.DeclaringType == type).OrderBy(it => it.Name))
+            {
+                var description = prop.GetCustomAttribute<DescriptionAttribute>()!.Description;
+                var defaultValue = prop.GetValue(referenceInstance);
+                builder.Append(prop.Name).Append("\n:   _")
+                    .Append(description).Append("_\n");
+                if (defaultValue is not null)
+                {
+                    builder.Append("    \n    **Default value:** `").Append(defaultValue).Append("`.\n");
+                }
+                builder
+                    .Append("    \n    **Environment variable name:** `").Append(envVarPrefix).Append(prop.Name.ToUpperInvariant()).Append("`.\n")
+                    .Append("    \n    **Command line:** `").Append(cliPrefix).Append(prop.Name).Append("=<value>`.\n")
+                    .Append("    \n    **`cezanne.json` sample:**\n")
+                    .Append("    ````json\n")
+                    .Append("    {\n")
+                    .Append("      \"cezanne\": {\n")
+                    .Append("        \"").Append(prefix).Append("\": {\n")
+                    .Append("          \"").Append(prop.Name).Append("\": \"<value>\"\n")
+                    .Append("        }\n")
+                    .Append("      }\n")
+                    .Append("    }\n")
+                    .Append("    ````\n")
+                    .Append('\n');
+            }
+
+            return builder.Append('\n').ToString();
         }
 
         private static void _GenerateJsonSchema(Type type, string output, ILogger logger,
@@ -116,7 +192,7 @@ namespace Cézanne.Doc
                         .UseAbbreviations()
                         .UseFootnotes()
                         .UseGridTables()
-                        .UseBootstrap()
+                        .UseDefinitionLists()
                 });
         }
     }

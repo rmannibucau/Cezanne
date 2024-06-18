@@ -32,8 +32,7 @@ namespace Cézanne.Core.Tests.Service
             Assert.That(recipes.Count(), Is.EqualTo(1));
 
             List<LoadedDescriptor> visited = new();
-            foreach (RecipeHandler.RecipeContext recipe in
-                     recipes) // todo: add some descriptor to the recipe to test it
+            foreach (RecipeHandler.RecipeContext recipe in recipes)
             {
                 await recipeHandler.ExecuteOnRecipe(
                     "Visiting ", recipe.Manifest, recipe.Recipe,

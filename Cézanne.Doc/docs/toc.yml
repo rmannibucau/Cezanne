@@ -2,5 +2,7 @@
   href: getting-started.md
 - name: Manifest Reference
   href: manifest-reference.md
+- name: Configuration
+  href: configuration.md
 - name: Developers
   href: developers.md

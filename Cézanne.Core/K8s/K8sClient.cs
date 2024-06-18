@@ -1,5 +1,8 @@
 using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
+using Humanizer;
+using Json.Patch;
+using Json.Pointer;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
 using System.Net;
@@ -12,15 +15,25 @@ using System.Text.Json.Nodes;
 
 namespace Cézanne.Core.K8s
 {
-    public class K8SClient : IDisposable
+    public class K8SClient : IAsyncDisposable, IDisposable
     {
+        private readonly ApiPreloader _apiPreloader;
+        private readonly IEnumerable<JsonPatch> _droppedAttributes;
+        private readonly bool _dryRun;
+        private readonly bool _verbose;
         private readonly ILogger<K8SClient> _logger;
-
+        private volatile bool _disposed;
         private Action? _refreshAuth;
 
-        public K8SClient(K8SClientConfiguration configuration, ILogger<K8SClient> logger)
+        public K8SClient(K8SClientConfiguration configuration, ILogger<K8SClient> logger,
+            ILogger<ApiPreloader> apiPreloaderLogger)
         {
             _logger = logger;
+            _apiPreloader = new ApiPreloader(apiPreloaderLogger, this);
+            _droppedAttributes = (configuration.ImplicitlyDroppedAttributes ?? [])
+                .Select(path => new JsonPatch(PatchOperation.Remove(JsonPointer.Parse(path))));
+            _dryRun = configuration.DryRun;
+            _verbose = configuration.Verbose;
 
             if (File.Exists("/var/run/secrets/kubernetes.io/serviceaccount/namespace"))
             {
@@ -33,7 +46,7 @@ namespace Cézanne.Core.K8s
                 AllowAutoRedirect = true,
                 MaxAutomaticRedirections = 5
             };
-            HttpClient = new HttpClient(HttpMessageHandler) { Timeout = new TimeSpan(0, 0, configuration.Timeout) };
+            HttpClient = new HttpClient(HttpMessageHandler) { Timeout = TimeSpan.FromMilliseconds(configuration.Timeout) };
             HttpClient.DefaultRequestHeaders.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json") { CharSet = "UTF-8" });
 
@@ -107,6 +120,11 @@ namespace Cézanne.Core.K8s
             HttpClient.BaseAddress = new Uri(baseUrl ?? throw new ArgumentException("No base url found"));
 
             _logger.LogDebug("Using base url '{BaseUrl}'", baseUrl);
+
+            if (_dryRun)
+            {
+                _logger.LogInformation("Execution will use dry-run mode");
+            }
         }
 
         public KubeConfig? KubeConfig { get; }
@@ -117,13 +135,30 @@ namespace Cézanne.Core.K8s
 
         public HttpClientHandler HttpMessageHandler { get; }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
+            lock (this)
+            {
+                bool alreadyDisposed = _disposed;
+                if (alreadyDisposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+            }
+
+            await _apiPreloader.DisposeAsync();
             HttpClient.Dispose();
             foreach (X509Certificate clientCertificate in HttpMessageHandler.ClientCertificates)
             {
                 clientCertificate.Dispose();
             }
+        }
+
+        public void Dispose()
+        {
+            DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         public async Task<HttpResponseMessage> SendAsync(
@@ -142,19 +177,62 @@ namespace Cézanne.Core.K8s
                 message.Content.Headers.ContentType = json;
             }
 
-            return await HttpClient.SendAsync(message, HttpCompletionOption.ResponseContentRead,
-                new CancellationToken());
+            HttpResponseMessage response;
+            if (_dryRun)
+            {
+                // very simplistic client "mock"
+                response = await Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Version = new Version(1, 1),
+                    Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+                });
+                response.Headers.Add("x-dry-run", "true"); // flag for delete cases, we need another check than the status
+            }
+            else
+            {
+                response = await HttpClient.SendAsync(message, HttpCompletionOption.ResponseContentRead, new CancellationToken());
+            }
+            if (_verbose)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync() ?? "";
+                response.Content = new StringContent(responseBody, response.Content.Headers.ContentType ?? new(contentType ?? "application/json") { CharSet = "UTF-8" });
+                _logger.LogInformation(
+                    "{Method} {Uri}{RequestHeaders}\n\n{Payload}HTTP/{Version} {Status} {StatusReason}{ResponseHeaders}\n\n{ResponsePayload}",
+                    method, relativeUri, _FormatHeaders(message.Headers), content?.Length > 0 ? content + "\n\n" : "",
+                    response.Version, (int)response.StatusCode, response.StatusCode, _FormatHeaders(response.Headers), responseBody);
+            }
+
+            return response;
         }
 
-        public string ToBaseUri(JsonObject prepared)
+        private string _FormatHeaders(HttpHeaders headers)
+        {
+            if (!headers.Any())
+            {
+                return "";
+            }
+            return "\n" + string.Join("\n", headers.OrderBy(it => it.Key).Select(it => $"{it.Key}: {string.Join(',', it.Value)}"));
+        }
+
+        public async Task<string> ToBaseUri(JsonObject prepared)
         {
             string kindLowerCased = prepared["kind"]!.ToString().ToLowerInvariant() + 's';
-            // todo: await ensureResourceSpec(desc, kindLoaded)
             JsonObject metadata = prepared["metadata"]!.AsObject();
-            JsonNode? namespaceValue =
-                metadata.TryGetPropertyValue("namespace", out JsonNode? ns) ? ns : DefaultNamespace;
+            string namespaceValue =
+                (metadata.TryGetPropertyValue("namespace", out JsonNode? ns) && ns is not null
+                    ? ns.ToString()
+                    : DefaultNamespace) ?? "default";
 
-            // todo: io.yupiik.bundlebee.core.kube.KubeClient#toBaseUri once ensureResourceSpec is done
+            await _apiPreloader.EnsureResourceSpec(prepared, kindLowerCased);
+            string? specPrefix = _apiPreloader[kindLowerCased];
+            if (specPrefix is not null)
+            {
+                specPrefix =
+                    (specPrefix.StartsWith('/') ? specPrefix[1..] : specPrefix).Replace("${namespace}", namespaceValue,
+                        StringComparison.Ordinal);
+                return $"{Base}{specPrefix}";
+            }
+
             string nsSegment = _IsSkipNameSpace(kindLowerCased) ? "" : "/namespaces/" + namespaceValue + '/';
             string prefix = _FindApiPrefix(kindLowerCased, prepared);
             prefix = prefix.StartsWith('/') ? prefix[1..] : prefix;
@@ -262,7 +340,23 @@ namespace Cézanne.Core.K8s
 
         private JsonObject _SanitizeJson(JsonObject value)
         {
-            // todo: remove implicitlyDroppedValues
+            JsonObject result = value;
+            foreach (JsonPatch patch in _droppedAttributes)
+            {
+                try
+                {
+                    PatchResult applied = patch.Apply(result);
+                    if (applied.IsSuccess && applied.Result is not null)
+                    {
+                        result = applied.Result.AsObject();
+                    }
+                }
+                catch (Exception)
+                {
+                    // no-op
+                }
+            }
+
             return value;
         }
 
