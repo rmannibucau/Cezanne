@@ -28,7 +28,7 @@
       "changefreq": "weekly"
     },
     "template": [
-      "default", "bin/templates/SingulinkFX-3.0.2/singulinkfx"
+      "default", "modern"
     ]
   }
 }

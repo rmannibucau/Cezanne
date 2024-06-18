@@ -29,8 +29,9 @@
     </Target>
     <Target Name="AutoRemoveSite" DependsOnTargets="BeforeClean" />
 
+    <!-- add ""bin/templates/SingulinkFX-3.0.2/singulinkfx"" in templates in docfx.json -->
     <!-- dotnet msbuild Cézanne.Doc/ /t:ServeSite -->
-    <Target Name="DownloadSiteTheme" AfterTargets="BeforeBuild" Condition="!Exists('$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\singulinkfx')">
+    <!--Target Name="DownloadSiteTheme" AfterTargets="BeforeBuild" Condition="!Exists('$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\singulinkfx')">
       <ItemGroup>
         <_ClobberDirectories Include="$(BaseOutputPath)\templates"/>
       </ItemGroup>
@@ -41,7 +42,7 @@
         DestinationFolder="$(BaseOutputPath)\templates" />
       <RemoveDir Directories="$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\screenshots" />
       <Delete Files="$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\README.md;$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\LICENSE;$(BaseOutputPath)\templates\singulinkfx.zip" />
-    </Target>
+    </Target-->
     <Target Name="ServeSite" DependsOnTargets="Build">
         <Exec Command="$(OutDir)\$(MSBuildProjectName) true"/>
     </Target>
