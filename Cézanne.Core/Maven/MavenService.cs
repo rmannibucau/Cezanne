@@ -42,19 +42,19 @@ namespace Cézanne.Core.Maven
         public void Dispose()
         {
             _httpClient.Dispose();
-            foreach (KeyValuePair<string, SemaphoreSlim> it in locks)
+            foreach (var it in locks)
             {
                 it.Value.Dispose();
             }
         }
 
-        public async Task<string> FindOrDownload(string gav)
+        public async Task<string> FindOrDownload(string gav, IProgress<double>? onProgress)
         {
-            SemaphoreSlim semaphore = locks.GetOrAdd(gav, _ => new SemaphoreSlim(1));
+            var semaphore = locks.GetOrAdd(gav, _ => new SemaphoreSlim(1));
             await semaphore.WaitAsync();
             try
             {
-                string result = await _DoFind(_RemoveRepoIfPresent(gav));
+                var result = await _DoFind(_RemoveRepoIfPresent(gav), onProgress);
                 semaphore.Release();
                 return result;
             }
@@ -65,9 +65,9 @@ namespace Cézanne.Core.Maven
             }
         }
 
-        private async Task<string> _DoFind(string raw)
+        private async Task<string> _DoFind(string raw, IProgress<double>? onProgress)
         {
-            string[] segments = raw[(raw.IndexOf('!') + 1)..].Split(':');
+            var segments = raw[(raw.IndexOf('!') + 1)..].Split(':');
             if (segments.Length < 3)
             {
                 if (Directory.Exists(raw))
@@ -78,13 +78,13 @@ namespace Cézanne.Core.Maven
                 throw new ArgumentException($"Invalid location: {raw}");
             }
 
-            string group = segments[0];
+            var group = segments[0];
             if (group.Trim().Length == 0)
             {
                 throw new ArgumentException($"Invalid groupId: {raw}", nameof(raw));
             }
 
-            string artifact = segments[1];
+            var artifact = segments[1];
             if (artifact.Trim().Length == 0)
             {
                 throw new ArgumentException($"Invalid artifactId: {raw}", nameof(raw));
@@ -110,13 +110,13 @@ namespace Cézanne.Core.Maven
                 fullClassifier = null;
             }
 
-            string version = segments[2];
+            var version = segments[2];
             if (version.Trim().Length == 0)
             {
                 throw new ArgumentException($"Invalid artifactId: {raw}", nameof(raw));
             }
 
-            string file = Path.Combine(LocalRepository,
+            var file = Path.Combine(LocalRepository,
                 _ToRelativePath(null, group, artifact, version, fullClassifier, type, version));
             if (File.Exists(file))
             {
@@ -125,7 +125,7 @@ namespace Cézanne.Core.Maven
             }
 
             string repoBase;
-            int sep = raw.LastIndexOf('!');
+            var sep = raw.LastIndexOf('!');
             if (sep > 0)
             {
                 repoBase = raw[..sep];
@@ -138,7 +138,7 @@ namespace Cézanne.Core.Maven
                     : _configuration.ReleaseRepository;
             }
 
-            string resolvedVersion = await _FindVersion(repoBase, group, artifact, version);
+            var resolvedVersion = await _FindVersion(repoBase, group, artifact, version);
             if (!_configuration.EnableDownload)
             {
                 throw new InvalidOperationException($"Downloads are disabled, cant download: '{raw}'");
@@ -147,28 +147,65 @@ namespace Cézanne.Core.Maven
             return await _Download(
                 group, artifact, resolvedVersion, fullClassifier, type,
                 _ToRelativePath(repoBase, group, artifact, resolvedVersion, fullClassifier, type, version),
-                version);
+                version, onProgress);
         }
 
         private async Task<string> _Download(string group, string artifact, string resolvedVersion,
             string? fullClassifier,
-            string type, string url, string version)
+            string type, string url, string version,
+            IProgress<double>? onProgress)
         {
             _logger.LogInformation("Downloading {url}", url);
-            string local = Path.Combine(LocalRepository,
+            var local = Path.Combine(LocalRepository,
                 _ToRelativePath(null, group, artifact, resolvedVersion, fullClassifier, type, version));
             Directory.GetParent(local)?.Create();
 
-            using HttpResponseMessage response = await _GET(new Uri(url));
+            using var response = await _GET(new Uri(url));
+            response.EnsureSuccessStatusCode();
+            long size = -1;
+            if ((response.Content.Headers.ContentLength ?? -1) > 0)
+            {
+                size = response.Content.Headers.ContentLength ?? 0;
+            }
+
             using FileStream localStream = new(local, FileMode.Create);
-            await response.Content.CopyToAsync(localStream).ConfigureAwait(false);
+            using var content = await response.Content.ReadAsStreamAsync();
+            var buffer = new byte[65_536];
+            int read;
+            long current = 0;
+            try
+            {
+                while (true)
+                {
+                    read = await content.ReadAsync(buffer).ConfigureAwait(false);
+                    if (read is 0)
+                    {
+                        break;
+                    }
+
+                    await localStream.WriteAsync(buffer.AsMemory(0, read)).ConfigureAwait(false);
+                    if (size > 0 && onProgress is not null)
+                    {
+                        current += read;
+                        var percent = (double)current / size;
+                        if (percent < 100)
+                        {
+                            onProgress.Report(percent);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                onProgress?.Report(100); // when progress was broken cause size was not known just report it is done
+            }
 
             return local;
         }
 
         private async Task<string> _FindVersion(string repoBase, string group, string artifact, string version)
         {
-            string baseUrl = repoBase == null || repoBase.Length == 0
+            var baseUrl = repoBase == null || repoBase.Length == 0
                 ? ""
                 : repoBase + (!repoBase.EndsWith("/") ? "/" : "");
             if (("LATEST" == version || "LATEST-SNAPSHOT" == version) && baseUrl.StartsWith("http"))
@@ -176,7 +213,7 @@ namespace Cézanne.Core.Maven
                 Uri meta = new(baseUrl + group.Replace('.', '/') + "/" + artifact + "/maven-metadata.xml");
                 try
                 {
-                    XmlDocument xml = await _LoadMeta(meta);
+                    var xml = await _LoadMeta(meta);
                     if (version.EndsWith("-SNAPSHOT"))
                     {
                         return xml.SelectSingleNode("/metadata/versioning/latest")?.InnerText ?? version;
@@ -198,12 +235,12 @@ namespace Cézanne.Core.Maven
                                "/maven-metadata.xml");
                 try
                 {
-                    XmlDocument xml = await _LoadMeta(meta);
-                    XmlNode? snapshot = xml.SelectSingleNode("/metadata/versioning/snapshot");
+                    var xml = await _LoadMeta(meta);
+                    var snapshot = xml.SelectSingleNode("/metadata/versioning/snapshot");
                     if (snapshot is not null)
                     {
-                        XmlNodeList? buildNumber = snapshot.SelectNodes("./buildNumber");
-                        XmlNodeList? timestamp = snapshot.SelectNodes("./timestamp");
+                        var buildNumber = snapshot.SelectNodes("./buildNumber");
+                        var timestamp = snapshot.SelectNodes("./timestamp");
                         if (buildNumber is not null && timestamp is not null)
                         {
                             return string.Join('-', version[..(version.Length - "-SNAPSHOT".Length)], timestamp,
@@ -226,8 +263,10 @@ namespace Cézanne.Core.Maven
 
         private async Task<HttpResponseMessage> _GET(Uri uri)
         {
-            HttpResponseMessage response = await _httpClient.SendAsync(_SetupHttpHeaders(uri.Host,
-                new HttpRequestMessage { Method = HttpMethod.Get, RequestUri = uri }));
+            var response = await _httpClient.SendAsync(
+                _SetupHttpHeaders(uri.Host,
+                    new HttpRequestMessage { Method = HttpMethod.Get, RequestUri = uri }),
+                HttpCompletionOption.ResponseHeadersRead);
             if (response.StatusCode != HttpStatusCode.OK)
             {
                 throw new InvalidOperationException($"Invalid {uri} response: {response}");
@@ -239,8 +278,8 @@ namespace Cézanne.Core.Maven
 
         private async Task<XmlDocument> _LoadMeta(Uri meta)
         {
-            using HttpResponseMessage response = await _GET(meta);
-            string content = await response.Content.ReadAsStringAsync();
+            using var response = await _GET(meta);
+            var content = await response.Content.ReadAsStringAsync();
             XmlDocument xml = new();
             xml.LoadXml(content);
             return xml;
@@ -265,7 +304,7 @@ namespace Cézanne.Core.Maven
 
         private string _RemoveRepoIfPresent(string url)
         {
-            int sep = url.IndexOf('!') + 1;
+            var sep = url.IndexOf('!') + 1;
             if (sep != 0)
             {
                 return url[..sep] + url[sep..].Replace(':', '/');
@@ -276,7 +315,7 @@ namespace Cézanne.Core.Maven
 
         public string? FindSettingsXml()
         {
-            string settings = _configuration.PreferLocalSettingsXml || _configuration.ForceCustomSettingsXml
+            var settings = _configuration.PreferLocalSettingsXml || _configuration.ForceCustomSettingsXml
                 ? Path.Combine(LocalRepository, "settings.xml")
                 : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".m2/settings.xml");
             if (!File.Exists(settings))
@@ -295,13 +334,13 @@ namespace Cézanne.Core.Maven
 
         public Server? FindMavenServer(string serverId)
         {
-            string? settingsXml = FindSettingsXml();
+            var settingsXml = FindSettingsXml();
             if (settingsXml is null)
             {
                 return null;
             }
 
-            string? settingsSecurity = Path.Combine(settingsXml, "../settings-security.xml");
+            var settingsSecurity = Path.Combine(settingsXml, "../settings-security.xml");
             if (settingsSecurity is null)
             {
                 return null;
@@ -310,15 +349,15 @@ namespace Cézanne.Core.Maven
             XmlDocument xml = new();
             xml.Load(settingsXml);
 
-            XmlNodeList? servers = xml.DocumentElement?.SelectNodes("/settings/servers/server");
+            var servers = xml.DocumentElement?.SelectNodes("/settings/servers/server");
             if (servers is null)
             {
                 return null;
             }
 
-            for (int i = 0; i < servers.Count; i++)
+            for (var i = 0; i < servers.Count; i++)
             {
-                XmlNode? node = servers[i];
+                var node = servers[i];
 
                 if (node?.SelectSingleNode("./id")?.InnerText == serverId)
                 {
@@ -333,8 +372,8 @@ namespace Cézanne.Core.Maven
 
         public string? FindMasterPassword()
         {
-            string settingsXml = FindSettingsXml() ?? throw new ArgumentException("no settings.xml");
-            string? settingsSecurity = Path.Combine(settingsXml, "../settings-security.xml");
+            var settingsXml = FindSettingsXml() ?? throw new ArgumentException("no settings.xml");
+            var settingsSecurity = Path.Combine(settingsXml, "../settings-security.xml");
             if (settingsSecurity is null)
             {
                 return null;
@@ -353,18 +392,18 @@ namespace Cézanne.Core.Maven
                 return;
             }
 
-            foreach (string line in _configuration.HttpHeaders.Split("\n"))
+            foreach (var line in _configuration.HttpHeaders.Split("\n"))
             {
                 if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("#") || line.Contains('='))
                 {
                     continue;
                 }
 
-                int sep = line.IndexOf('=');
+                var sep = line.IndexOf('=');
 
                 Dictionary<string, string> value = new();
-                int valueSep = line[(sep + 1)..].TrimStart().IndexOf('=');
-                ImmutableDictionary<string, string>.Builder valueBuilder =
+                var valueSep = line[(sep + 1)..].TrimStart().IndexOf('=');
+                var valueBuilder =
                     ImmutableDictionary.CreateBuilder<string, string>();
                 valueBuilder.Add(line[(sep + 1)..valueSep].Trim(), line[(valueSep + 1)..].TrimStart());
 
@@ -379,21 +418,21 @@ namespace Cézanne.Core.Maven
                 return _configuration.LocalRepository;
             }
 
-            string m2 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            var m2 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".m2/repository");
-            string settingsXml = Path.Combine(m2, "settings.xml");
+            var settingsXml = Path.Combine(m2, "settings.xml");
             if (File.Exists(settingsXml))
             {
                 try
                 {
-                    string content = File.ReadAllText(settingsXml);
-                    int start = content.IndexOf("<localRepository>");
+                    var content = File.ReadAllText(settingsXml);
+                    var start = content.IndexOf("<localRepository>");
                     if (start > 0)
                     {
-                        int end = content.IndexOf("</localRepository>", start);
+                        var end = content.IndexOf("</localRepository>", start);
                         if (end > 0)
                         {
-                            string localM2RepositoryFromSettings = content[(start + "<localRepository>".Length)..end];
+                            var localM2RepositoryFromSettings = content[(start + "<localRepository>".Length)..end];
                             if (!string.IsNullOrWhiteSpace(localM2RepositoryFromSettings))
                             {
                                 m2 = localM2RepositoryFromSettings;
@@ -412,9 +451,9 @@ namespace Cézanne.Core.Maven
 
         private HttpRequestMessage _SetupHttpHeaders(string host, HttpRequestMessage request)
         {
-            if (_HttpHeaders.TryGetValue(host, out IDictionary<string, string>? found))
+            if (_HttpHeaders.TryGetValue(host, out var found))
             {
-                foreach (KeyValuePair<string, string> it in found)
+                foreach (var it in found)
                 {
                     request.Headers.Add(it.Key, it.Value);
                 }
@@ -425,7 +464,7 @@ namespace Cézanne.Core.Maven
                 {
                     if (FindMavenServer("bundlebee." + host) is { Username: not null, Password: not null } server)
                     {
-                        string key = $"{server.Username}:{server.Password}";
+                        var key = $"{server.Username}:{server.Password}";
                         request.Headers.Add("Authorization",
                             $"Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes(key))}");
                     }

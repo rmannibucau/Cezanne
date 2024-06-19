@@ -45,9 +45,9 @@ namespace Cézanne.Core.Cli.Command
             {
                 if (IsEnabled(logLevel))
                 {
-                    string color = LevelColors[logLevel];
-                    string levelName = LevelNames[logLevel];
-                    string message = formatter(state, exception);
+                    var color = LevelColors[logLevel];
+                    var levelName = LevelNames[logLevel];
+                    var message = formatter(state, exception);
                     AnsiConsole.MarkupLineInterpolated($"[[[{color}]{levelName}[/]]][[{loggerName}]] {message}");
                 }
             }

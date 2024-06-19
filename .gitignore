@@ -12,4 +12,6 @@ out
 _site
 generated
 templates/Singu*
+**/docs/commands/*.md
+!**/docs/commands/index.md
 

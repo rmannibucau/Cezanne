@@ -9,11 +9,14 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Spectre.Console;
+using Spectre.Console.Cli;
 using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Xml.Serialization;
 
 namespace Cézanne.Doc
 {
@@ -21,11 +24,11 @@ namespace Cézanne.Doc
     {
         private static async Task Main(string[] args)
         {
-            string baseDir = Path.GetFullPath($"{AppDomain.CurrentDomain.BaseDirectory}/../../..");
-            string docfxConf = $"{baseDir}/docfx.json";
+            var baseDir = Path.GetFullPath($"{AppDomain.CurrentDomain.BaseDirectory}/../../..");
+            var docfxConf = $"{baseDir}/docfx.json";
 
-            using ILoggerFactory loggerFactory = LoggerFactory.Create(b => b.AddConsole());
-            ILogger logger = loggerFactory.CreateLogger(typeof(RenderDoc));
+            using var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
+            var logger = loggerFactory.CreateLogger(typeof(RenderDoc));
 
             _RunPreActions(baseDir, logger);
 
@@ -34,29 +37,134 @@ namespace Cézanne.Doc
             if ((args.Length > 0 && bool.Parse(args[0])) ||
                 bool.Parse(Environment.GetEnvironmentVariable("DOC_SERVE") ?? "false"))
             {
-                await using WebApplication app = _Serve(logger, $"{baseDir}/_site");
+                await using var app = _Serve(logger, $"{baseDir}/_site");
 
                 async void OnChange()
                 {
                     await _DoRender(logger, docfxConf);
                 }
 
-                using FileSystemWatcher watcher = _Watch(baseDir, OnChange);
+                using var watcher = _Watch(baseDir, OnChange);
 
                 await app.WaitForShutdownAsync();
             }
         }
 
+        // todo: likely replace it by something like Markdig.Extensions.ScriptCs
         private static void _RunPreActions(string baseDir, ILogger logger)
         {
-            Type manifestType = typeof(Manifest);
+            var manifestType = typeof(Manifest);
             _GenerateJsonSchema(
                 manifestType,
                 $"{baseDir}/docs/generated/schema/manifest.jsonschema.json",
                 logger,
                 (type, property) => type == manifestType && property.Name == "Alveoli");
 
-            _GenerateEnvironmentConfiguration($"{baseDir}/docs/generated/configuration/properties.json", logger);
+            _GenerateEnvironmentConfiguration($"{baseDir}/docs/generated/configuration/properties.md", logger);
+            _GenerateCommands($"{baseDir}/docs/generated/commands/list.md", $"{baseDir}/docs/commands", logger);
+        }
+
+        private static void _GenerateCommands(string output, string commandBaseOutput, ILogger logger)
+        {
+            var cezanne = new Cezanne();
+            cezanne.Run([], (app, ioc) =>
+            {
+                var writer = new StringWriter();
+                try
+                {
+                    app.Configure(conf => conf.ConfigureConsole(AnsiConsole.Create(new AnsiConsoleSettings
+                    {
+                        Ansi = AnsiSupport.No,
+                        ColorSystem = ColorSystemSupport.NoColors,
+                        Interactive = InteractionSupport.No,
+                        Out = new AnsiConsoleOutput(writer)
+                    })));
+
+                    var code = app.Run(["cli", "xmldoc"]);
+                    if (code != 0)
+                    {
+                        throw new InvalidOperationException($"Invalid xmlddoc result {code}:\n{writer}");
+                    }
+                }
+                finally
+                {
+                    writer.Dispose();
+                }
+
+                XmlDocModel model;
+                using (var reader = new StringReader(writer.ToString()))
+                {
+                    model = (XmlDocModel)new XmlSerializer(typeof(XmlDocModel)).Deserialize(reader)!;
+                }
+
+                var dir = Directory.GetParent(output);
+                if (dir?.Exists is false)
+                {
+                    Directory.CreateDirectory(dir.FullName);
+                }
+
+                var index = string.Join('\n', (model.Command ?? [])
+                    .OrderBy(it => it.Name)
+                    .Select(it => $"* [`{it.Name}`](~/docs/commands/{it.Name}.md): {it.Description ?? "-"}"));
+                File.WriteAllText(output, index);
+                logger.LogInformation("Wrote '{output}'", output);
+
+                // now for each command generate a dedicated page
+                foreach (var command in model.Command ?? [])
+                {
+                    var commandDoc = "---\n" +
+                                     $"uid: command-{command.Name}\n" +
+                                     "---\n" +
+                                     "\n" +
+                                     $"# Command `{command.Name}`\n" +
+                                     "\n" +
+                                     $"{command.Description ?? ""}\n" +
+                                     "\n" +
+                                     "## Options\n" +
+                                     "\n" +
+                                     string.Join("\n", (command.Parameters ?? [])
+                                         .OrderBy(it =>
+                                             string.IsNullOrEmpty(it.Long)
+                                                 ? string.IsNullOrEmpty(it.Short) ? it.Value : it.Short
+                                                 : it.Long)
+                                         .Select(it =>
+                                         {
+                                             IList<IEnumerable<string>> names =
+                                             [
+                                                 (!string.IsNullOrEmpty(it.Long) ? it.Long.Split(',') : []).Select(it =>
+                                                     $"`--{it}`"),
+                                                 (!string.IsNullOrEmpty(it.Short) ? it.Short.Split(',') : []).Select(
+                                                     it => $"`-{it}`")
+                                             ];
+                                             var builder =
+                                                 new StringBuilder(string.Join(", ", names.SelectMany(it => it)));
+                                             if (it.Required)
+                                             {
+                                                 builder.Append('*');
+                                             }
+
+                                             if (it.Description is not null)
+                                             {
+                                                 builder.Append("\n:   _").Append(it.Description).Append("_\n");
+                                             }
+
+                                             // needs spectre upgrade
+                                             if (it.DefaultValue is not null)
+                                             {
+                                                 builder.Append("    \n    **Default value:** `")
+                                                     .Append(it.DefaultValue).Append("`.\n");
+                                             }
+
+                                             return builder.ToString();
+                                         })) +
+                                     "\n";
+
+
+                    File.WriteAllText($"{commandBaseOutput}/{command.Name}.md", commandDoc);
+                }
+
+                return 0;
+            });
         }
 
         private static void _GenerateEnvironmentConfiguration(string output, ILogger logger)
@@ -72,7 +180,7 @@ namespace Cézanne.Doc
 
             if (md.Count > 0)
             {
-                DirectoryInfo? dir = Directory.GetParent(output);
+                var dir = Directory.GetParent(output);
                 if (dir?.Exists is false)
                 {
                     Directory.CreateDirectory(dir.FullName);
@@ -109,8 +217,10 @@ namespace Cézanne.Doc
                 {
                     builder.Append("    \n    **Default value:** `").Append(defaultValue).Append("`.\n");
                 }
+
                 builder
-                    .Append("    \n    **Environment variable name:** `").Append(envVarPrefix).Append(prop.Name.ToUpperInvariant()).Append("`.\n")
+                    .Append("    \n    **Environment variable name:** `").Append(envVarPrefix)
+                    .Append(prop.Name.ToUpperInvariant()).Append("`.\n")
                     .Append("    \n    **Command line:** `").Append(cliPrefix).Append(prop.Name).Append("=<value>`.\n")
                     .Append("    \n    **`cezanne.json` sample:**\n")
                     .Append("    ````json\n")
@@ -132,9 +242,9 @@ namespace Cézanne.Doc
             Func<Type, PropertyInfo, bool> ignores)
         {
             JsonSchemaGenerator jsonSchemaGenerator = new();
-            JsonSchema.JsonSchema schema = jsonSchemaGenerator.For(type, ignores);
+            var schema = jsonSchemaGenerator.For(type, ignores);
 
-            DirectoryInfo? dir = Directory.GetParent(output);
+            var dir = Directory.GetParent(output);
             if (dir?.Exists is false)
             {
                 Directory.CreateDirectory(dir.FullName);
@@ -166,24 +276,24 @@ namespace Cézanne.Doc
 
         private static WebApplication _Serve(ILogger logger, string docBase)
         {
-            string url = "http://localhost:8080";
-            WebApplicationBuilder builder = WebApplication.CreateBuilder();
+            var url = "http://localhost:8080";
+            var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls(url);
-            WebApplication app = builder.Build();
+            var app = builder.Build();
             app.UseFileServer(new FileServerOptions
             {
                 StaticFileOptions = { ServeUnknownFileTypes = true },
                 EnableDirectoryBrowsing = true,
                 FileProvider = new PhysicalFileProvider(docBase)
             });
-            logger.LogInformation($"Doc available at '{url}'.", url);
+            logger.LogInformation("Doc available at '{url}'.", url);
             app.Start();
             return app;
         }
 
         private static async Task _DoRender(ILogger logger, string directory)
         {
-            logger.LogInformation($"Rendering '{directory}'", directory);
+            logger.LogInformation("Rendering '{Directory}'", directory);
             await Docset.Build(
                 directory,
                 new BuildOptions
@@ -195,5 +305,45 @@ namespace Cézanne.Doc
                         .UseDefinitionLists()
                 });
         }
+    }
+
+    [XmlRoot(ElementName = "Model")]
+    public class XmlDocModel
+    {
+        [XmlElement(ElementName = "Command")] public List<XmlCommand>? Command { get; set; }
+    }
+
+    public class XmlOption
+    {
+        [XmlAttribute("ClrType")] public string? ClrType { get; set; }
+
+        [XmlElement("DefaultValue")] public string? DefaultValue { get; set; }
+        [XmlElement("Description")] public string? Description { get; set; }
+
+        [XmlAttribute("Kind")] public string? Kind { get; set; }
+
+        [XmlAttribute("Long")] public string? Long { get; set; }
+
+        [XmlAttribute("Required")] public bool Required { get; set; }
+
+        [XmlAttribute("Short")] public string? Short { get; set; }
+
+        [XmlAttribute("Value")] public string? Value { get; set; }
+    }
+
+    public class XmlCommand
+    {
+        [XmlElement("ClrType")] public string? ClrType { get; set; }
+
+        [XmlElement("Description")] public string? Description { get; set; }
+        [XmlElement("IsBranch")] public bool? IsBranch { get; set; }
+
+        [XmlAttribute("Name")] public string? Name { get; set; }
+
+        [XmlArray("Parameters")]
+        [XmlArrayItem("Option")]
+        public List<XmlOption>? Parameters { get; set; }
+
+        [XmlElement("Settings")] public string? Settings { get; set; }
     }
 }

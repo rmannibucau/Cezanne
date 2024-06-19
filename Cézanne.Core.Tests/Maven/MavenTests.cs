@@ -24,7 +24,7 @@ namespace Cézanne.Core.Tests.Maven
                     }, new Logger<MavenService>(new NullLoggerFactory()));
 
             Directory.CreateDirectory(Temp);
-            string settings = Path.Combine(Temp, "settings.xml");
+            var settings = Path.Combine(Temp, "settings.xml");
             File.WriteAllText(settings, """
                                         <settings>
                                           <servers>
@@ -37,7 +37,7 @@ namespace Cézanne.Core.Tests.Maven
                                         </settings>
                                         """);
 
-            MavenService.Server? server = maven.FindMavenServer("test");
+            var server = maven.FindMavenServer("test");
             Assert.Multiple(() =>
             {
                 Assert.That(server, Is.Not.Null);
@@ -50,12 +50,12 @@ namespace Cézanne.Core.Tests.Maven
         [TempFolder]
         public async Task Download()
         {
-            WebApplication mockServer = WebApplication.Create();
+            var mockServer = WebApplication.Create();
             mockServer.Urls.Add("http://127.0.0.1:0");
             mockServer.MapGet("/io/yupiik/bundlebee/test/1.2.3/test-1.2.3.jar", () => "worked");
             await mockServer.StartAsync();
 
-            using WebApplication server = mockServer;
+            using var server = mockServer;
             using MavenService maven = new(
                 new MavenConfiguration
                 {
@@ -66,11 +66,11 @@ namespace Cézanne.Core.Tests.Maven
                     LocalRepository = Temp ?? throw new ArgumentNullException("Temp")
                 }, new Logger<MavenService>(new NullLoggerFactory()));
 
-            string expectedLocal = Path.Combine(Temp, "io/yupiik/bundlebee/test/1.2.3/test-1.2.3.jar");
+            var expectedLocal = Path.Combine(Temp, "io/yupiik/bundlebee/test/1.2.3/test-1.2.3.jar");
             Directory.GetParent(expectedLocal)?.Create();
             Assert.That(File.Exists(expectedLocal), Is.False, "{0} exist", expectedLocal);
 
-            string downloaded = await maven.FindOrDownload("io.yupiik.bundlebee:test:1.2.3");
+            var downloaded = await maven.FindOrDownload("io.yupiik.bundlebee:test:1.2.3", null);
             Assert.Multiple(() =>
             {
                 Assert.That(downloaded, Is.EqualTo(expectedLocal));

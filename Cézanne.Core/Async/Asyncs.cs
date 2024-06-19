@@ -6,7 +6,7 @@ namespace Cézanne.Core.Cli.Async
         {
             if (chain)
             {
-                foreach (Func<Task> item in list)
+                foreach (var item in list)
                 {
                     await item();
                 }

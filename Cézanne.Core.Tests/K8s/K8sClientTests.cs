@@ -18,7 +18,7 @@ namespace Cézanne.Core.Tests.K8s
         [Test]
         public async Task CallApi()
         {
-            WebApplication mockServer = WebApplication.Create();
+            var mockServer = WebApplication.Create();
             mockServer.Urls.Add("http://127.0.0.1:0");
             mockServer.MapGet("/test", () => "mock");
             mockServer.Start();
@@ -28,7 +28,7 @@ namespace Cézanne.Core.Tests.K8s
                 await using K8SClient client = new(
                     new K8SClientConfiguration { Base = mockServer.Urls.First(), Kubeconfig = "skip" },
                     new Logger<K8SClient>(loggerFactory), new Logger<ApiPreloader>(loggerFactory));
-                HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, "/test");
+                var response = await client.SendAsync(HttpMethod.Get, "/test");
                 Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             }
         }
@@ -39,23 +39,28 @@ namespace Cézanne.Core.Tests.K8s
             var logProvider = new InMemoryLogProvider();
             using ILoggerFactory loggerFactory = new LoggerFactory([logProvider]);
 
-            WebApplication mockServer = WebApplication.Create();
+            var mockServer = WebApplication.Create();
             mockServer.Urls.Add("http://127.0.0.1:0");
             mockServer.Start();
 
             await using (mockServer)
             {
                 await using K8SClient client = new(
-                    new K8SClientConfiguration { Base = mockServer.Urls.First(), Kubeconfig = "skip", DryRun = true, Verbose = true },
+                    new K8SClientConfiguration
+                    {
+                        Base = mockServer.Urls.First(), Kubeconfig = "skip", DryRun = true, Verbose = true
+                    },
                     new Logger<K8SClient>(loggerFactory), new Logger<ApiPreloader>(loggerFactory));
-                HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, "/foo");
+                var response = await client.SendAsync(HttpMethod.Get, "/foo");
                 Assert.Multiple(async () =>
                 {
-                    Assert.That(logProvider.Logs, Is.EqualTo(new List<string>{
-                        $"[Cézanne.Core.K8s.K8SClient][Debug] Using base url 'http://127.0.0.1:{new Uri(mockServer.Urls.First()).Port}'",
-                        "[Cézanne.Core.K8s.K8SClient][Information] Execution will use dry-run mode",
-                        "[Cézanne.Core.K8s.K8SClient][Information] GET /foo\n\nHTTP/1.1 200 OK\nx-dry-run: true\n\n{}"
-                    }));
+                    Assert.That(logProvider.Logs,
+                        Is.EqualTo(new List<string>
+                        {
+                            $"[Cézanne.Core.K8s.K8SClient][Debug] Using base url 'http://127.0.0.1:{new Uri(mockServer.Urls.First()).Port}'",
+                            "[Cézanne.Core.K8s.K8SClient][Information] Execution will use dry-run mode",
+                            "[Cézanne.Core.K8s.K8SClient][Information] GET /foo\n\nHTTP/1.1 200 OK\nx-dry-run: true\n\n{}"
+                        }));
                     Assert.That(await response.Content.ReadAsStringAsync(), Is.EqualTo("{}"));
                 });
             }
@@ -65,7 +70,7 @@ namespace Cézanne.Core.Tests.K8s
         [TempFolder]
         public async Task YamlKubeConfig()
         {
-            string kubeConfig = Path.Combine(_TempOrFail(), "kubeconfig");
+            var kubeConfig = Path.Combine(_TempOrFail(), "kubeconfig");
             File.WriteAllText(
                 kubeConfig,
                 """
@@ -138,7 +143,8 @@ namespace Cézanne.Core.Tests.K8s
             return logLevel != LogLevel.None;
         }
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
         {
             var log = $"[{name}][{logLevel}] {formatter(state, exception)}";
             lock (logs)
@@ -157,6 +163,7 @@ namespace Cézanne.Core.Tests.K8s
             // no-op
         }
     }
+
     internal class InMemoryLogProvider : ILoggerProvider
     {
         internal readonly IList<string> Logs = new List<string>();

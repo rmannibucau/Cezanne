@@ -15,7 +15,7 @@ namespace Cézanne.Core.Service
 
         public JsonObject DropCpuResources(string kind, JsonObject desc)
         {
-            string? containersParentPointer = kind switch
+            var containersParentPointer = kind switch
             {
                 "deployments" or "daemonsets" or "jobs" => "/spec/template/spec",
                 "cronjobs" => "/spec/jobTemplate/spec/template/spec",
@@ -36,22 +36,22 @@ namespace Cézanne.Core.Service
         private JsonObject _ReplaceIfPresent(JsonObject source, string parentPtr, string name,
             Func<JsonArray, JsonArray> fn)
         {
-            JsonPointer ptr = JsonPointer.Parse(string.Join('/', parentPtr, name));
+            var ptr = JsonPointer.Parse(string.Join('/', parentPtr, name));
             try
             {
-                if (!ptr.TryEvaluate(source, out JsonNode? result))
+                if (!ptr.TryEvaluate(source, out var result))
                 {
                     return source;
                 }
 
-                JsonArray original = result!.AsArray();
-                JsonArray changed = fn(original);
+                var original = result!.AsArray();
+                var changed = fn(original);
                 if (original == changed)
                 {
                     return source;
                 }
 
-                PatchResult patch = new JsonPatch(PatchOperation.Replace(ptr, changed)).Apply(source);
+                var patch = new JsonPatch(PatchOperation.Replace(ptr, changed)).Apply(source);
                 if (patch.IsSuccess && patch.Result is not null)
                 {
                     return patch.Result.AsObject();
@@ -74,10 +74,10 @@ namespace Cézanne.Core.Service
                 return container;
             }
 
-            JsonObject resources = container["resources"]!.AsObject();
+            var resources = container["resources"]!.AsObject();
             if (resources.ContainsKey("requests"))
             {
-                JsonObject requests = resources["requests"]!.AsObject();
+                var requests = resources["requests"]!.AsObject();
                 if (requests.ContainsKey("cpu") && requests["cpu"] == null)
                 {
                     requests.Remove("cpu");
@@ -86,7 +86,7 @@ namespace Cézanne.Core.Service
 
             if (resources.ContainsKey("limits"))
             {
-                JsonObject limits = resources["limits"]!.AsObject();
+                var limits = resources["limits"]!.AsObject();
                 if (limits.ContainsKey("cpu") && limits["cpu"] == null)
                 {
                     limits.Remove("cpu");
@@ -100,8 +100,8 @@ namespace Cézanne.Core.Service
         {
             try
             {
-                int i = 0;
-                foreach (JsonNode? item in array)
+                var i = 0;
+                foreach (var item in array)
                 {
                     array[i++] = _DropNullCpu(item!.AsObject());
                 }

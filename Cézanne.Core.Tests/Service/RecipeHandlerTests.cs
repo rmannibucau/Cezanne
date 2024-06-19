@@ -20,19 +20,19 @@ namespace Cézanne.Core.Tests.Service
         public async Task Visit()
         {
             // setup IoC
-            (MavenService maven, RecipeHandler recipeHandler, ArchiveReader archiveReader) = _NewServices();
-            using MavenService mvn = maven;
+            var (maven, recipeHandler, archiveReader) = _NewServices();
+            using var mvn = maven;
 
             // create a fake recipe
-            string zipLocation = _CreateZip(maven);
+            var zipLocation = _CreateZip(maven);
 
             // visit the recipe
-            IEnumerable<RecipeHandler.RecipeContext> recipes =
-                await recipeHandler.FindRootRecipes(zipLocation, null, "test", "test");
+            var recipes =
+                await recipeHandler.FindRootRecipes(zipLocation, null, "test", "test", null);
             Assert.That(recipes.Count(), Is.EqualTo(1));
 
             List<LoadedDescriptor> visited = new();
-            foreach (RecipeHandler.RecipeContext recipe in recipes)
+            foreach (var recipe in recipes)
             {
                 await recipeHandler.ExecuteOnRecipe(
                     "Visiting ", recipe.Manifest, recipe.Recipe,
@@ -48,7 +48,7 @@ namespace Cézanne.Core.Tests.Service
                     },
                     archiveReader.NewCache(),
                     desc => Task.CompletedTask,
-                    "test");
+                    "test", null);
             }
 
             Assert.That(visited, Has.Count.EqualTo(1));
@@ -58,7 +58,7 @@ namespace Cézanne.Core.Tests.Service
         [Test]
         public void ContextExclude()
         {
-            IEnumerable<Manifest.DescriptorRef> exclusions =
+            var exclusions =
                 new RecipeHandler.RecipeContext(new Manifest(), new Manifest.Recipe())
                     .Exclude("foo", "bar,dummy")
                     .Recipe
@@ -75,12 +75,12 @@ namespace Cézanne.Core.Tests.Service
         [TempFolder]
         public async Task FindRootRecipes()
         {
-            (MavenService maven, RecipeHandler recipeHandler, _) = _NewServices();
-            string zipLocation = _CreateZip(maven);
+            var (maven, recipeHandler, _) = _NewServices();
+            var zipLocation = _CreateZip(maven);
             using (maven)
             {
-                IEnumerable<RecipeHandler.RecipeContext> ctx =
-                    await recipeHandler.FindRootRecipes("com.cezanne.test:recipe:1.0.0", null, "auto", "test");
+                var ctx =
+                    await recipeHandler.FindRootRecipes("com.cezanne.test:recipe:1.0.0", null, "auto", "test", null);
                 Assert.Multiple(() =>
                 {
                     Assert.That(ctx.Count(), Is.EqualTo(1));
@@ -93,13 +93,13 @@ namespace Cézanne.Core.Tests.Service
         [TempFolder]
         public async Task ResolveTwice()
         {
-            (MavenService maven, RecipeHandler recipeHandler, _) = _NewServices();
-            string zipLocation = _CreateZip(maven);
-            using MavenService mvn = maven;
+            var (maven, recipeHandler, _) = _NewServices();
+            var zipLocation = _CreateZip(maven);
+            using var mvn = maven;
 
             // twice to ensure the cache - nested, not global there - does not break anything in case of a later refactoring
-            Manifest? mf1 = await recipeHandler.FindManifest("com.cezanne.test:recipe:1.0.0", null, "test");
-            Manifest? mf2 = await recipeHandler.FindManifest("com.cezanne.test:recipe:1.0.0", null, "test");
+            var mf1 = await recipeHandler.FindManifest("com.cezanne.test:recipe:1.0.0", null, "test", null);
+            var mf2 = await recipeHandler.FindManifest("com.cezanne.test:recipe:1.0.0", null, "test", null);
             Action<Manifest?> asserts = mf =>
             {
                 Assert.Multiple(() =>
@@ -136,20 +136,20 @@ namespace Cézanne.Core.Tests.Service
 
         private string _CreateZip(MavenService maven)
         {
-            string zipLocation = Path.Combine(maven.LocalRepository, "com/cezanne/test/recipe/1.0.0/recipe-1.0.0.jar");
+            var zipLocation = Path.Combine(maven.LocalRepository, "com/cezanne/test/recipe/1.0.0/recipe-1.0.0.jar");
             (Directory.GetParent(zipLocation) ?? throw new ArgumentException("no parent", nameof(zipLocation)))
                 .Create();
-            using (ZipArchive zip = ZipFile.Open(zipLocation, ZipArchiveMode.Create))
+            using (var zip = ZipFile.Open(zipLocation, ZipArchiveMode.Create))
             {
                 zip.CreateEntry("bundlebee/").Open().Close();
 
-                using (Stream manifestJson = zip.CreateEntry("bundlebee/manifest.json").Open())
+                using (var manifestJson = zip.CreateEntry("bundlebee/manifest.json").Open())
                 {
                     manifestJson.Write(Encoding.UTF8.GetBytes(
                         "{\"alveoli\":[{\"name\": \"test\",\"descriptors\":[{\"name\":\"desc.json\"}]}]}"));
                 }
 
-                using Stream descJson = zip.CreateEntry("bundlebee/kubernetes/desc.json").Open();
+                using var descJson = zip.CreateEntry("bundlebee/kubernetes/desc.json").Open();
                 descJson.Write(Encoding.UTF8.GetBytes(
                     "{\"apiVersion\":\"v1\",\"kind\":\"ConfigMap\",\"metadata\":{\"name\":\"cm\"}\"data\":{}}"));
             }

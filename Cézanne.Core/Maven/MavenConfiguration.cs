@@ -10,8 +10,7 @@ namespace Cézanne.Core.Maven
         [Description("Is remote downloading of transitive alveoli enabled.")]
         public bool EnableDownload { get; set; } = false;
 
-        [Description("HTTP timeout.")]
-        public int Timeout { get; set; } = 30_000;
+        [Description("HTTP timeout.")] public int Timeout { get; set; } = 30_000;
 
         [Description("Where to cache maven dependencies. " +
                      "If set to `auto`, tries to read the system property `maven.repo.local`" +

@@ -19,14 +19,14 @@ namespace Cézanne.Core.Service
                 return;
             }
 
-            IEnumerable<Manifest.AwaitConditions> conditions =
+            var conditions =
                 (descriptor.Configuration.AwaitConditions ?? []).Where(it => it.Command == command);
             if (!descriptor.Configuration.Await && !conditions.Any())
             {
                 return;
             }
 
-            DateTime expiration = DateTime.UtcNow.AddMilliseconds(timeout);
+            var expiration = DateTime.UtcNow.AddMilliseconds(timeout);
             if (descriptor.Configuration.Await)
             {
                 await _Exists(descriptor, DateTime.UtcNow.AddMilliseconds(timeout), "delete" != command);
@@ -47,12 +47,12 @@ namespace Cézanne.Core.Service
         {
             async Task<bool> exists()
             {
-                IEnumerable<bool> result = await client.ForDescriptor(descriptor.Content, descriptor.Extension,
+                var result = await client.ForDescriptor(descriptor.Content, descriptor.Extension,
                     async item =>
                     {
-                        string name = item.Prepared["metadata"]!.AsObject()["name"]!.ToString();
-                        string baseUri = await client.ToBaseUri(item.Prepared) + '/' + name;
-                        using HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, baseUri + "/" + name);
+                        var name = item.Prepared["metadata"]!.AsObject()["name"]!.ToString();
+                        var baseUri = await client.ToBaseUri(item.Prepared) + '/' + name;
+                        using var response = await client.SendAsync(HttpMethod.Get, baseUri + "/" + name);
                         return response.IsSuccessStatusCode;
                     });
                 return (result.Count() == 1 && result.First()) == expected;
@@ -76,16 +76,16 @@ namespace Cézanne.Core.Service
         {
             async Task<bool> getResource()
             {
-                IEnumerable<bool>? result = await client.ForDescriptor(descriptor.Content, descriptor.Extension,
+                var result = await client.ForDescriptor(descriptor.Content, descriptor.Extension,
                     async item =>
                     {
-                        string name = item.Prepared["metadata"]!.AsObject()["name"]!.ToString();
-                        string baseUri = await client.ToBaseUri(item.Prepared) + '/' + name;
-                        HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, baseUri);
+                        var name = item.Prepared["metadata"]!.AsObject()["name"]!.ToString();
+                        var baseUri = await client.ToBaseUri(item.Prepared) + '/' + name;
+                        var response = await client.SendAsync(HttpMethod.Get, baseUri);
                         try
                         {
                             return response.IsSuccessStatusCode &&
-                                   (response.Headers.TryGetValues("x-dry-run", out IEnumerable<string>? dryRun) ||
+                                   (response.Headers.TryGetValues("x-dry-run", out var dryRun) ||
                                     await _Evaluate(condition, response));
                         }
                         finally
@@ -101,7 +101,7 @@ namespace Cézanne.Core.Service
 
         private async Task<bool> _Evaluate(Manifest.AwaitCondition condition, HttpResponseMessage response)
         {
-            string body = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync();
             try
             {
                 return conditionJsonEvaluator.Evaluate(condition,

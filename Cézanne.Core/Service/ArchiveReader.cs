@@ -15,10 +15,10 @@ namespace Cézanne.Core.Service
             logger.LogTrace("Reading {location}", path);
             if (Directory.Exists(path))
             {
-                string folderManifest = Path.Combine(path, "bundlebee/manifest.json");
+                var folderManifest = Path.Combine(path, "bundlebee/manifest.json");
                 if (File.Exists(folderManifest))
                 {
-                    Manifest manifestJson = manifestReader.ReadManifest(
+                    var manifestJson = manifestReader.ReadManifest(
                         Path.GetFullPath(path),
                         () => File.OpenRead(folderManifest),
                         reference =>
@@ -28,7 +28,7 @@ namespace Cézanne.Core.Service
                                 return File.OpenRead(reference);
                             }
 
-                            string computed = Path.Combine(Path.Combine(path, "bundlebee"), reference);
+                            var computed = Path.Combine(Path.Combine(path, "bundlebee"), reference);
                             if (File.Exists(computed))
                             {
                                 return File.OpenRead(computed);
@@ -39,7 +39,7 @@ namespace Cézanne.Core.Service
                         id);
 
                     // list potential descriptors to propagate them upfront
-                    Dictionary<string, string> descriptors = Directory
+                    var descriptors = Directory
                         .EnumerateFiles(Path.Combine(path, "bundlebee/kubernetes"), "*.*", SearchOption.AllDirectories)
                         .Where(it => it.EndsWith(".json") ||
                                      it.EndsWith(".yml") || it.EndsWith(".yaml") ||
@@ -54,22 +54,22 @@ namespace Cézanne.Core.Service
             }
 
             // else assume a zip
-            using ZipArchive zip = ZipFile.OpenRead(path);
-            ZipArchiveEntry manifest = zip.GetEntry("bundlebee/manifest.json") ??
-                                       throw new ArgumentException($"Missing manifest in '{path}'", nameof(path));
-            Manifest mf = manifestReader.ReadManifest(
+            using var zip = ZipFile.OpenRead(path);
+            var manifest = zip.GetEntry("bundlebee/manifest.json") ??
+                           throw new ArgumentException($"Missing manifest in '{path}'", nameof(path));
+            var mf = manifestReader.ReadManifest(
                 coords,
                 manifest.Open,
                 relative =>
                 {
-                    string entry = relative.StartsWith('/') ? relative : $"bundlebee/{relative}";
+                    var entry = relative.StartsWith('/') ? relative : $"bundlebee/{relative}";
                     return (zip
                             .GetEntry(entry) ?? throw new ArgumentException($"No entry '{relative}' in '{path}'",
                             nameof(relative)))
                         .Open();
                 },
                 id);
-            Dictionary<string, string> zipDescriptors = zip.Entries
+            var zipDescriptors = zip.Entries
                 .Where(entry => entry.FullName.StartsWith("bundlebee/kubernetes/") && !entry.FullName.EndsWith('/'))
                 .Aggregate(new Dictionary<string, string>(), (agg, it) =>
                 {
@@ -97,21 +97,21 @@ namespace Cézanne.Core.Service
             private readonly ArchiveReader _archiveReader = archiveReader;
             private readonly ConcurrentDictionary<string, Task<Archive>> _archives = new();
 
-            public Task<Archive> LoadArchive(string coord, string? id)
+            public Task<Archive> LoadArchive(string coord, string? id, IProgress<double>? onProgress)
             {
-                return _archives.AddOrUpdate(coord, key => _DoLoadArchive(key, id), (_, old) => old);
+                return _archives.AddOrUpdate(coord, key => _DoLoadArchive(key, id, onProgress), (_, old) => old);
             }
 
-            private async Task<Archive> _DoLoadArchive(string coord, string? id)
+            private async Task<Archive> _DoLoadArchive(string coord, string? id, IProgress<double>? onProgress)
             {
                 if (Path.Exists(coord))
                 {
                     return _archiveReader.Read(coord, coord, id);
                 }
 
-                string zip = await (_archiveReader._maven ??
-                                    throw new ArgumentException("Missing maven service", nameof(_archiveReader)))
-                    .FindOrDownload(coord);
+                var zip = await (_archiveReader._maven ??
+                                 throw new ArgumentException(nameof(_archiveReader), "Missing maven service"))
+                    .FindOrDownload(coord, onProgress);
                 return _archiveReader.Read(coord, zip, id);
             }
         }

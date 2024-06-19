@@ -4,13 +4,13 @@
     "content": [
       {
         "files": "**/*.{md,yml}",
-        "exclude": "**/_site/**"
+        "exclude": [
+          "**/_site/**",
+          "**/generated/**/*.md"
+        ]
       }
     ],
     "resource": [
-      {
-        "files": "**/images/**"
-      },
       {
         "files": "**/generated/**/*.json"
       }
@@ -28,7 +28,8 @@
       "changefreq": "weekly"
     },
     "template": [
-      "default", "modern"
+      "default",
+      "modern"
     ]
   }
 }

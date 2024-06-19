@@ -16,11 +16,11 @@ namespace Cézanne.Core.Tests.Cli
         [TempFolder]
         public async Task Apply()
         {
-            (string baseDir, string manifest, string kubernetes) = _PrepareLayout();
+            var (baseDir, manifest, kubernetes) = _PrepareLayout();
             _WriteSimpleRecipe(manifest, kubernetes);
 
-            (WebApplication mockServer, ISet<string> requests) = await _MockK8s();
-            await using WebApplication _ = mockServer;
+            var (mockServer, requests) = await _MockK8s();
+            await using var _ = mockServer;
 
             _Cezanne(baseDir, mockServer).Run(["apply", "-a", "test", "-m", manifest]);
 
@@ -37,11 +37,11 @@ namespace Cézanne.Core.Tests.Cli
         [TempFolder]
         public async Task Delete()
         {
-            (string baseDir, string manifest, string kubernetes) = _PrepareLayout();
+            var (baseDir, manifest, kubernetes) = _PrepareLayout();
             _WriteSimpleRecipe(manifest, kubernetes);
 
-            (WebApplication mockServer, ISet<string> requests) = await _MockK8s();
-            await using WebApplication _ = mockServer;
+            var (mockServer, requests) = await _MockK8s();
+            await using var _ = mockServer;
 
             _Cezanne(baseDir, mockServer).Run(["delete", "-a", "test", "-m", manifest]);
 
@@ -90,11 +90,11 @@ namespace Cézanne.Core.Tests.Cli
         private async Task<(WebApplication, ISet<string>)> _MockK8s()
         {
             HashSet<string> requests = new();
-            WebApplication mockServer = WebApplication.Create();
+            var mockServer = WebApplication.Create();
             mockServer.Urls.Add("http://127.0.0.1:0");
             mockServer.Run(async ctx =>
             {
-                string current = $"{ctx.Request.Method} {ctx.Request.Path}";
+                var current = $"{ctx.Request.Method} {ctx.Request.Path}";
                 lock (requests)
                 {
                     requests.Add(current);
@@ -122,10 +122,10 @@ namespace Cézanne.Core.Tests.Cli
 
         private (string, string, string) _PrepareLayout()
         {
-            string baseDir = Temp!;
-            string bundlebee = Path.Combine(baseDir, "bundlebee");
-            string kubernetes = Path.Combine(bundlebee, "kubernetes");
-            string manifest = Path.Combine(bundlebee, "manifest.json");
+            var baseDir = Temp!;
+            var bundlebee = Path.Combine(baseDir, "bundlebee");
+            var kubernetes = Path.Combine(bundlebee, "kubernetes");
+            var manifest = Path.Combine(bundlebee, "manifest.json");
             return (baseDir, manifest, kubernetes);
         }
 

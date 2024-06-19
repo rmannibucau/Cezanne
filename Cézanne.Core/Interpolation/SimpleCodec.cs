@@ -10,13 +10,13 @@ namespace Cézanne.Core.Interpolation
 
         public string? Decipher(string input)
         {
-            Match match = _encryptedPattern().Match(input);
+            var match = _encryptedPattern().Match(input);
             if (!match.Success)
             {
                 return input;
             }
 
-            string value = match.Groups["value"].Value;
+            var value = match.Groups["value"].Value;
             if (value.StartsWith("${env.") && value.EndsWith("}"))
             {
                 return Environment.GetEnvironmentVariable(value["${env.".Length..^1]);
@@ -32,23 +32,23 @@ namespace Cézanne.Core.Interpolation
                 throw new ArgumentException($"Unsupported encryption: '{value}'");
             }
 
-            byte[] allEncryptedBytes = Convert.FromBase64String(value.Replace("\r\n", ""));
-            byte[] salt = allEncryptedBytes[..8];
-            int padLength = allEncryptedBytes[8] - (allEncryptedBytes[8] > 127 ? 256 : 0);
-            byte[] encryptedBytes = allEncryptedBytes[9..(allEncryptedBytes.Length - padLength)];
+            var allEncryptedBytes = Convert.FromBase64String(value.Replace("\r\n", ""));
+            var salt = allEncryptedBytes[..8];
+            var padLength = allEncryptedBytes[8] - (allEncryptedBytes[8] > 127 ? 256 : 0);
+            var encryptedBytes = allEncryptedBytes[9..(allEncryptedBytes.Length - padLength)];
 
-            byte[] keyAndIv = new byte[16 * 2];
-            int currentPos = 0;
+            var keyAndIv = new byte[16 * 2];
+            var currentPos = 0;
 
             byte[] toDigest = [];
 
-            using SHA256 digest = SHA256.Create();
+            using var digest = SHA256.Create();
             while (currentPos < keyAndIv.Length)
             {
                 toDigest = [.. toDigest, .. _masterPassword, .. salt];
-                byte[] result = digest.ComputeHash(toDigest);
+                var result = digest.ComputeHash(toDigest);
 
-                int stillNeed = keyAndIv.Length - currentPos;
+                var stillNeed = keyAndIv.Length - currentPos;
                 if (result.Length > stillNeed)
                 {
                     result = result[..stillNeed];
@@ -63,14 +63,14 @@ namespace Cézanne.Core.Interpolation
                 }
             }
 
-            using Aes cipher = Aes.Create();
+            using var cipher = Aes.Create();
             cipher.KeySize = 128;
             cipher.Padding = PaddingMode.PKCS7;
             cipher.Mode = CipherMode.CBC;
             cipher.Key = keyAndIv[..16];
             cipher.IV = keyAndIv[16..];
 
-            using ICryptoTransform decryptor = cipher.CreateDecryptor(cipher.Key, cipher.IV);
+            using var decryptor = cipher.CreateDecryptor(cipher.Key, cipher.IV);
             return Encoding.UTF8.GetString(decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length));
         }
 

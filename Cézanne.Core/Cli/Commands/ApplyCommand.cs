@@ -1,9 +1,11 @@
 using Cézanne.Core.Cli.Async;
+using Cézanne.Core.Cli.Progress;
 using Cézanne.Core.K8s;
 using Cézanne.Core.Service;
 using Json.Patch;
 using Json.Pointer;
 using Microsoft.Extensions.Logging;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Collections.Immutable;
 using System.ComponentModel;
@@ -23,45 +25,65 @@ namespace Cézanne.Core.Cli.Command
     {
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
-            string id = Guid.NewGuid().ToString();
-            logger.LogTrace("Applying id='{Id}' location='{Location}' manifest='{Manifest}'", id, settings.From,
-                settings.Manifest);
+            var id = Guid.NewGuid().ToString();
 
-            ArchiveReader.Cache cache = archiveReader.NewCache();
-            IEnumerable<RecipeHandler.RecipeContext> recipes =
-                await recipeHandler.FindRootRecipes(settings.From, settings.Manifest, settings.Alveolus, id);
-            IEnumerable<Func<Task>> tasks = recipes
-                .Select(it => it.Exclude(settings.ExcludedLocations ?? "none", settings.ExcludedDescriptors ?? "none"))
-                .Select(it =>
+            var tasksToInstall = await AnsiConsole.Progress()
+                .AutoClear(true)
+                .HideCompleted(false)
+                .StartAsync(async ctx =>
                 {
-                    async Task handler()
-                    {
-                        await recipeHandler.ExecuteOnceOnRecipe(
-                            "Deploying", it.Manifest, it.Recipe, null,
-                            async (ctx, recipe) =>
+                    logger.LogTrace("Applying id='{Id}' location='{Location}' manifest='{Manifest}'", id, settings.From,
+                        settings.Manifest);
+
+                    var cache = archiveReader.NewCache();
+                    var progress = new ProgressHandler(ctx).OnProgress;
+                    var recipes =
+                        await recipeHandler.FindRootRecipes(settings.From, settings.Manifest, settings.Alveolus, id,
+                            progress);
+                    var tasks = recipes
+                        .Select(it => it.Exclude(settings.ExcludedLocations ?? "none",
+                            settings.ExcludedDescriptors ?? "none"))
+                        .Select(it =>
+                        {
+                            async Task handler()
                             {
-                                await client.ForDescriptor(recipe.Content, recipe.Extension, async item =>
-                                {
-                                    if (settings.LogDescriptors)
+                                await recipeHandler.ExecuteOnceOnRecipe(
+                                    "Deploying", it.Manifest, it.Recipe, null,
+                                    async (ctx, recipe) =>
                                     {
-                                        logger.LogInformation("{Descriptor}={Content}", recipe.Configuration.Name,
-                                            JsonSerializer.Serialize(item.Prepared, Jsons.Options));
-                                    }
+                                        await client.ForDescriptor(recipe.Content, recipe.Extension, async item =>
+                                        {
+                                            if (settings.LogDescriptors)
+                                            {
+                                                logger.LogInformation("{Descriptor}={Content}",
+                                                    recipe.Configuration.Name,
+                                                    JsonSerializer.Serialize(item.Prepared, Jsons.Options));
+                                            }
 
-                                    string kind = item.Prepared["kind"]!.ToString().ToLowerInvariant() + 's';
-                                    return await _DoApply(item.Prepared, kind, 1, settings.DryRun,
-                                        settings.FieldValidation ?? "skip",
-                                        settings.StatefulSetSpecUpdatableAttributes ?? ImmutableHashSet<string>.Empty);
-                                });
-                            },
-                            cache,
-                            desc => conditionAwaiter.Await("apply", desc, settings.AwaitTimeout),
-                            "deployed", id);
-                    }
+                                            var kind = item.Prepared["kind"]!.ToString().ToLowerInvariant() + 's';
+                                            return await _DoApply(item.Prepared, kind, 1, settings.DryRun,
+                                                settings.FieldValidation ?? "skip",
+                                                settings.StatefulSetSpecUpdatableAttributes ??
+                                                ImmutableHashSet<string>.Empty);
+                                        });
+                                    },
+                                    cache,
+                                    desc => conditionAwaiter.Await("apply", desc, settings.AwaitTimeout),
+                                    "deployed", id, progress);
+                            }
 
-                    return (Func<Task>)handler;
+                            return (Func<Task>)handler;
+                        });
+                    return tasks;
                 });
-            await Asyncs.All(settings.ChainDescriptorsInstallation, tasks);
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.BouncingBar)
+                .SpinnerStyle(Style.Parse("dodgerblue1"))
+                .StartAsync($"Applying id='{id}' location='{settings.From}' manifest='{settings.Manifest}'",
+                    async ctx =>
+                    {
+                        await Asyncs.All(settings.ChainDescriptorsInstallation, tasksToInstall);
+                    });
 
             return 0;
         }
@@ -69,27 +91,27 @@ namespace Cézanne.Core.Cli.Command
         private async Task<bool> _DoApply(JsonObject prepared, string kind, int retries, bool dryRun,
             string fieldValidation, ISet<string> statefulSetsAllowedSpecAttributes)
         {
-            JsonObject metadata = prepared["metadata"]!.AsObject();
-            string name = metadata["name"]!.ToString();
-            JsonNode? ns = metadata.TryGetPropertyValue("namespace", out JsonNode? metaNs)
+            var metadata = prepared["metadata"]!.AsObject();
+            var name = metadata["name"]!.ToString();
+            var ns = metadata.TryGetPropertyValue("namespace", out var metaNs)
                 ? metaNs
                 : client.DefaultNamespace;
             logger.LogInformation("Applying {kind} '{Name}' on namespace '{Namespace}'", name, ns, kind[..^1]);
 
-            string baseUri = await client.ToBaseUri(prepared);
-            string completeUri = baseUri + '/' + name;
+            var baseUri = await client.ToBaseUri(prepared);
+            var completeUri = baseUri + '/' + name;
 
-            using HttpResponseMessage findResponse = await client.SendAsync(HttpMethod.Get, completeUri);
+            using var findResponse = await client.SendAsync(HttpMethod.Get, completeUri);
             if (findResponse.StatusCode > HttpStatusCode.NotFound)
             {
-                string error = await findResponse.Content.ReadAsStringAsync();
+                var error = await findResponse.Content.ReadAsStringAsync();
                 throw new InvalidOperationException($"Can't apply {completeUri}: {error}");
             }
 
-            string queryParams = "?fieldManager=kubectl-client-side-apply" +
-                                 (dryRun ? "" : "&dryRun=All") +
-                                 ("skip" == fieldValidation ? "" : "&fieldValidation=" + fieldValidation);
-            string uriWithQuery = $"{completeUri}{queryParams}";
+            var queryParams = "?fieldManager=kubectl-client-side-apply" +
+                              (dryRun ? "" : "&dryRun=All") +
+                              ("skip" == fieldValidation ? "" : "&fieldValidation=" + fieldValidation);
+            var uriWithQuery = $"{completeUri}{queryParams}";
 
             if (sanitizer.CanSanitizeCpuResource(kind))
             {
@@ -102,10 +124,10 @@ namespace Cézanne.Core.Cli.Command
 
                 if (kind != "persistentvolumeclaims")
                 {
-                    JsonObject payload = prepared;
-                    if (payload["metadata"]!.AsObject().TryGetPropertyValue("resourceVersion", out JsonNode? crv) &&
+                    var payload = prepared;
+                    if (payload["metadata"]!.AsObject().TryGetPropertyValue("resourceVersion", out var crv) &&
                         crv is null &&
-                        metadata.TryGetPropertyValue("resourceVersion", out JsonNode? rs) && recipeHandler is not null)
+                        metadata.TryGetPropertyValue("resourceVersion", out var rs) && recipeHandler is not null)
                     {
                         payload = new JsonPatch(PatchOperation.Add(JsonPointer.Parse("/metadata/resourceVersion"), rs))
                             .Apply(payload).Result!.AsObject();
@@ -113,12 +135,12 @@ namespace Cézanne.Core.Cli.Command
 
                     if ("statefulsets" == kind && statefulSetsAllowedSpecAttributes.Any())
                     {
-                        JsonObject? spec = payload.TryGetPropertyValue("spec", out JsonNode? sss)
+                        var spec = payload.TryGetPropertyValue("spec", out var sss)
                             ? sss!.AsObject()
                             : null;
                         if (spec is not null)
                         {
-                            foreach (KeyValuePair<string, JsonNode?> attr in spec.ToImmutableList())
+                            foreach (var attr in spec.ToImmutableList())
                             {
                                 if (!statefulSetsAllowedSpecAttributes.Contains(attr.Key))
                                 {
@@ -128,14 +150,14 @@ namespace Cézanne.Core.Cli.Command
                         }
                     }
 
-                    prepared["metadata"]!.AsObject().TryGetPropertyValue("annotations", out JsonNode? annotations);
+                    prepared["metadata"]!.AsObject().TryGetPropertyValue("annotations", out var annotations);
                     if (annotations is not null)
                     {
                         if (annotations.AsObject()
-                                .TryGetPropertyValue("io.yupiik.bundlebee/force", out JsonNode? force) &&
+                                .TryGetPropertyValue("io.yupiik.bundlebee/force", out var force) &&
                             force?.GetValueKind() == JsonValueKind.True)
                         {
-                            using HttpResponseMessage deleteResponse = await client.SendAsync(
+                            using var deleteResponse = await client.SendAsync(
                                 HttpMethod.Delete, completeUri + "?gracePeriodSeconds=-1",
                                 "{\"kind\":\"DeleteOptions\",\"apiVersion\":\"v1\",\"propagationPolicy\":\"Foreground\"}",
                                 "application/json");
@@ -148,7 +170,7 @@ namespace Cézanne.Core.Cli.Command
                             {
                                 while (true)
                                 {
-                                    using HttpResponseMessage response = await client.SendAsync(HttpMethod.Get, completeUri);
+                                    using var response = await client.SendAsync(HttpMethod.Get, completeUri);
                                     logger.LogTrace("{Namespace}/{Name} deletion:{Response}", ns ?? "-", name,
                                         response);
                                     if (response.StatusCode == HttpStatusCode.NotFound)
@@ -157,7 +179,7 @@ namespace Cézanne.Core.Cli.Command
                                     }
                                 }
 
-                                using HttpResponseMessage putAfterDeleteResponse = await client.SendAsync(
+                                using var putAfterDeleteResponse = await client.SendAsync(
                                     HttpMethod.Put, uriWithQuery,
                                     JsonSerializer.Serialize(payload, Jsons.Options), "application/json");
                                 return putAfterDeleteResponse.StatusCode switch
@@ -170,10 +192,10 @@ namespace Cézanne.Core.Cli.Command
                         }
 
                         if (annotations.AsObject()
-                                .TryGetPropertyValue("io.yupiik.bundlebee/putOnUpdate", out JsonNode? update) &&
+                                .TryGetPropertyValue("io.yupiik.bundlebee/putOnUpdate", out var update) &&
                             update?.GetValueKind() == JsonValueKind.True)
                         {
-                            using HttpResponseMessage putResponse = await client.SendAsync(HttpMethod.Put, uriWithQuery,
+                            using var putResponse = await client.SendAsync(HttpMethod.Put, uriWithQuery,
                                 JsonSerializer.Serialize(payload, Jsons.Options), "application/json");
                             return putResponse.StatusCode switch
                             {
@@ -183,13 +205,13 @@ namespace Cézanne.Core.Cli.Command
                         }
                     }
 
-                    string patchType = annotations is not null &&
-                                       annotations.AsObject().TryGetPropertyValue(
-                                           "io.yupiik.bundlebee/patchContentType", out JsonNode? patchContentType) &&
-                                       patchContentType is not null
+                    var patchType = annotations is not null &&
+                                    annotations.AsObject().TryGetPropertyValue(
+                                        "io.yupiik.bundlebee/patchContentType", out var patchContentType) &&
+                                    patchContentType is not null
                         ? patchContentType.ToString()
                         : "application/strategic-merge-patch+json";
-                    HttpResponseMessage patchResponse = await client.SendAsync(HttpMethod.Patch, uriWithQuery,
+                    var patchResponse = await client.SendAsync(HttpMethod.Patch, uriWithQuery,
                         JsonSerializer.Serialize(payload, Jsons.Options), patchType);
                     if (patchResponse.StatusCode == HttpStatusCode.UnsupportedMediaType)
                     {
@@ -198,28 +220,29 @@ namespace Cézanne.Core.Cli.Command
                             JsonSerializer.Serialize(payload, Jsons.Options), "application/merge-patch+json");
                     }
 
-using (patchResponse) {
-                    return patchResponse.StatusCode switch
+                    using (patchResponse)
                     {
-                        HttpStatusCode.OK or HttpStatusCode.Created => true,
-                        _ => throw new InvalidOperationException($"Can't patch {completeUri}: {patchResponse}")
-                    };
-}
+                        return patchResponse.StatusCode switch
+                        {
+                            HttpStatusCode.OK or HttpStatusCode.Created => true,
+                            _ => throw new InvalidOperationException($"Can't patch {completeUri}: {patchResponse}")
+                        };
+                    }
                 }
             }
 
             logger.LogTrace("{Name} ({Kind}) does not exist, creating it", name, kind);
 
-            using HttpResponseMessage postResponse = await client.SendAsync(HttpMethod.Post, baseUri,
+            using var postResponse = await client.SendAsync(HttpMethod.Post, baseUri,
                 JsonSerializer.Serialize(prepared, Jsons.Options), "application/json");
             if (postResponse.StatusCode == HttpStatusCode.Conflict && retries > 0)
             {
                 // happens for service accounts for ex when implicitly created
-                string json = await postResponse.Content.ReadAsStringAsync();
-                JsonObject? obj = JsonSerializer.Deserialize<JsonObject>(json, Jsons.Options);
-                if ((obj?.TryGetPropertyValue("reason", out JsonNode? reason) ?? false) && reason is not null &&
+                var json = await postResponse.Content.ReadAsStringAsync();
+                var obj = JsonSerializer.Deserialize<JsonObject>(json, Jsons.Options);
+                if ((obj?.TryGetPropertyValue("reason", out var reason) ?? false) && reason is not null &&
                     "AlreadyExists" == reason.ToString() &&
-                    obj!.TryGetPropertyValue("details", out JsonNode? details) && details is not null &&
+                    obj!.TryGetPropertyValue("details", out var details) && details is not null &&
                     details.AsObject()["kind"]?.ToString() == "serviceaccounts")
                 {
                     return await _DoApply(prepared, kind, retries - 1, dryRun, fieldValidation,

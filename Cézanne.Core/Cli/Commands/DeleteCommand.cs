@@ -1,8 +1,10 @@
 using Cézanne.Core.Cli.Async;
+using Cézanne.Core.Cli.Progress;
 using Cézanne.Core.K8s;
 using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
 using Microsoft.Extensions.Logging;
+using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Collections.Immutable;
 using System.ComponentModel;
@@ -20,137 +22,159 @@ namespace Cézanne.Core.Cli.Command
     {
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
-            string id = Guid.NewGuid().ToString();
-            logger.LogTrace("Deleting id='{Id}' location='{Location}' manifest='{Manifest}'", id, settings.From,
-                settings.Manifest);
+            var id = Guid.NewGuid().ToString();
 
-            ArchiveReader.Cache cache = archiveReader.NewCache();
-            IEnumerable<RecipeHandler.RecipeContext> recipes =
-                await recipeHandler.FindRootRecipes(settings.From, settings.Manifest, settings.Alveolus, id);
-
-            IList<LoadedDescriptor> toDelete = new List<LoadedDescriptor>();
-            IEnumerable<Func<Task>> tasks = recipes
-                .Select(it => it.Exclude(settings.ExcludedLocations ?? "none", settings.ExcludedDescriptors ?? "none"))
-                .Select(it =>
+            var descriptorsToDelete = await AnsiConsole.Progress()
+                .AutoClear(true)
+                .HideCompleted(false)
+                .StartAsync(async ctx =>
                 {
-                    async Task handler()
-                    {
-                        await recipeHandler.ExecuteOnceOnRecipe(
-                            "Deleting", it.Manifest, it.Recipe, null,
-                            async (ctx, recipe) =>
-                            {
-                                lock (toDelete)
-                                {
-                                    toDelete.Add(recipe);
-                                }
+                    logger.LogTrace("Deleting id='{Id}' location='{Location}' manifest='{Manifest}'", id, settings.From,
+                        settings.Manifest);
 
-                                await Task.CompletedTask;
-                            },
-                            cache,
-                            async desc =>
-                            {
-                                if (desc.Configuration.AwaitOnDelete ?? false)
-                                {
-                                    await conditionAwaiter.Await("delete", desc, settings.AwaitTimeout);
-                                }
+                    var cache = archiveReader.NewCache();
+                    var progress = new ProgressHandler(ctx).OnProgress;
+                    var recipes =
+                        await recipeHandler.FindRootRecipes(settings.From, settings.Manifest, settings.Alveolus, id,
+                            progress);
 
-                                await Task.CompletedTask;
-                            },
-                            "deleted", id);
-                    }
-
-                    return (Func<Task>)handler;
-                });
-
-            await Asyncs.All(false, tasks);
-
-            toDelete = toDelete.Distinct().Reverse().ToImmutableList();
-
-            IDictionary<LoadedDescriptor, (IEnumerable<JsonObject>, Func<Task>)> deletions = toDelete.Select(it =>
-                {
-                    List<JsonObject> list = new();
-
-                    async Task handler()
-                    {
-                        await client.ForDescriptor(it.Content, it.Extension, async item =>
+                    IList<LoadedDescriptor> toDelete = new List<LoadedDescriptor>();
+                    var tasks = recipes
+                        .Select(it => it.Exclude(settings.ExcludedLocations ?? "none",
+                            settings.ExcludedDescriptors ?? "none"))
+                        .Select(it =>
                         {
-                            lock (list)
+                            async Task handler()
                             {
-                                list.Add(item.Prepared);
+                                await recipeHandler.ExecuteOnceOnRecipe(
+                                    "Deleting", it.Manifest, it.Recipe, null,
+                                    async (ctx, recipe) =>
+                                    {
+                                        lock (toDelete)
+                                        {
+                                            toDelete.Add(recipe);
+                                        }
+
+                                        await Task.CompletedTask;
+                                    },
+                                    cache,
+                                    async desc =>
+                                    {
+                                        if (desc.Configuration.AwaitOnDelete ?? false)
+                                        {
+                                            await conditionAwaiter.Await("delete", desc, settings.AwaitTimeout);
+                                        }
+
+                                        await Task.CompletedTask;
+                                    },
+                                    "deleted", id, progress);
                             }
 
-                            JsonObject metadata = item.Prepared["metadata"]!.AsObject();
-                            JsonNode? name = metadata["name"];
-                            JsonNode? ns = metadata.TryGetPropertyValue("namespace", out JsonNode? n)
-                                ? n
-                                : client.DefaultNamespace ?? "default";
-                            logger.LogInformation("Deleting {Namespace}/{Name} ({Kind})", ns, name,
-                                item.Prepared["kind"]);
-
-                            string query = settings.GracePeriod > 0
-                                ? "?gracePeriodSeconds=" + settings.GracePeriod
-                                : "";
-                            string uri = await client.ToBaseUri(item.Prepared) + $"/{name}{query}";
-
-                            using HttpResponseMessage deleteResponse = await client.SendAsync(
-                                HttpMethod.Delete, uri,
-                                "{\"kind\":\"DeleteOptions\",\"apiVersion\":\"v1\",\"propagationPolicy\":\"Foreground\"}",
-                                "application/json");
-                            if (deleteResponse.StatusCode == HttpStatusCode.UnprocessableEntity)
-                            {
-                                logger.LogWarning("Can't delete entity {Uri}: {Response}\n{ResponsePayload}", uri,
-                                    deleteResponse, await deleteResponse.Content.ReadAsStringAsync());
-                            }
-
-                            return true;
+                            return (Func<Task>)handler;
                         });
-                    }
 
-                    return KeyValuePair.Create<LoadedDescriptor, (IEnumerable<JsonObject>, Func<Task>)>(it,
-                        (list, handler));
-                })
-                .ToDictionary();
-            await Asyncs.All(true, deletions.Values.Select(it => it.Item2));
+                    await Asyncs.All(false, tasks);
 
-            if (settings.Await < 0 || !toDelete.Any())
-            {
-                return 0;
-            }
-
-            DateTime expiration = DateTime.UtcNow.AddMilliseconds(settings.Await);
-            HashSet<JsonObject> alreadyDeleted = new();
-            int expectedDeleted = deletions.SelectMany(it => it.Value.Item1).Count();
-            while (true)
-            {
-                List<JsonObject> toCheck = deletions.SelectMany(it => it.Value.Item1)
-                    .Where(it => !alreadyDeleted.Contains(it)).ToList();
-                IEnumerable<Task> checks = toCheck.Select(it =>
-                {
-                    async Task doCheck()
-                    {
-                        using HttpResponseMessage response = await client.SendAsync(HttpMethod.Get,
-                            await client.ToBaseUri(it) + $"/{it["metadata"]!["name"]}");
-                        if (response.StatusCode !=
-                            HttpStatusCode.OK) // theorically 404 but don't loop when it is something not existing
-                        {
-                            lock (alreadyDeleted)
-                            {
-                                alreadyDeleted.Add(it);
-                            }
-                        }
-                    }
-
-                    return doCheck();
+                    return toDelete;
                 });
-                await Task.WhenAll(checks);
-                if (expectedDeleted == alreadyDeleted.Count)
-                {
-                    break;
-                }
 
-                logger.LogInformation("Awaiting deletion, will recheck in 5s");
-                await Task.Delay(5_000);
-            }
+            await AnsiConsole.Status()
+                .Spinner(Spinner.Known.BouncingBar)
+                .SpinnerStyle(Style.Parse("orangered1"))
+                .StartAsync($"Deleting id='{id}' location='{settings.From}' manifest='{settings.Manifest}'",
+                    async ctx =>
+                    {
+                        var toDelete = descriptorsToDelete.Distinct().Reverse().ToImmutableList();
+
+                        IDictionary<LoadedDescriptor, (IEnumerable<JsonObject>, Func<Task>)> deletions = toDelete
+                            .Select(it =>
+                            {
+                                List<JsonObject> list = new();
+
+                                async Task handler()
+                                {
+                                    await client.ForDescriptor(it.Content, it.Extension, async item =>
+                                    {
+                                        lock (list)
+                                        {
+                                            list.Add(item.Prepared);
+                                        }
+
+                                        var metadata = item.Prepared["metadata"]!.AsObject();
+                                        var name = metadata["name"];
+                                        var ns = metadata.TryGetPropertyValue("namespace", out var n)
+                                            ? n
+                                            : client.DefaultNamespace ?? "default";
+                                        logger.LogInformation("Deleting {Namespace}/{Name} ({Kind})", ns, name,
+                                            item.Prepared["kind"]);
+
+                                        var query = settings.GracePeriod > 0
+                                            ? "?gracePeriodSeconds=" + settings.GracePeriod
+                                            : "";
+                                        var uri = await client.ToBaseUri(item.Prepared) + $"/{name}{query}";
+
+                                        using var deleteResponse = await client.SendAsync(
+                                            HttpMethod.Delete, uri,
+                                            "{\"kind\":\"DeleteOptions\",\"apiVersion\":\"v1\",\"propagationPolicy\":\"Foreground\"}",
+                                            "application/json");
+                                        if (deleteResponse.StatusCode == HttpStatusCode.UnprocessableEntity)
+                                        {
+                                            logger.LogWarning(
+                                                "Can't delete entity {Uri}: {Response}\n{ResponsePayload}", uri,
+                                                deleteResponse, await deleteResponse.Content.ReadAsStringAsync());
+                                        }
+
+                                        return true;
+                                    });
+                                }
+
+                                return KeyValuePair.Create<LoadedDescriptor, (IEnumerable<JsonObject>, Func<Task>)>(it,
+                                    (list, handler));
+                            })
+                            .ToDictionary();
+                        await Asyncs.All(true, deletions.Values.Select(it => it.Item2));
+
+                        if (settings.Await < 0 || !toDelete.Any())
+                        {
+                            return;
+                        }
+
+                        var expiration = DateTime.UtcNow.AddMilliseconds(settings.Await);
+                        HashSet<JsonObject> alreadyDeleted = new();
+                        var expectedDeleted = deletions.SelectMany(it => it.Value.Item1).Count();
+                        while (true)
+                        {
+                            var toCheck = deletions.SelectMany(it => it.Value.Item1)
+                                .Where(it => !alreadyDeleted.Contains(it)).ToList();
+                            var checks = toCheck.Select(it =>
+                            {
+                                async Task doCheck()
+                                {
+                                    using var response = await client.SendAsync(HttpMethod.Get,
+                                        await client.ToBaseUri(it) + $"/{it["metadata"]!["name"]}");
+                                    // theorically 404 but don't loop when it is something not existing
+                                    if (response.StatusCode != HttpStatusCode.OK ||
+                                        response.Headers.Contains("x-dry-run"))
+                                    {
+                                        lock (alreadyDeleted)
+                                        {
+                                            alreadyDeleted.Add(it);
+                                        }
+                                    }
+                                }
+
+                                return doCheck();
+                            });
+                            await Task.WhenAll(checks);
+                            if (expectedDeleted == alreadyDeleted.Count)
+                            {
+                                break;
+                            }
+
+                            logger.LogInformation("Awaiting deletion, will recheck in 5s");
+                            await Task.Delay(5_000);
+                        }
+                    });
 
             return 0;
         }

@@ -55,8 +55,8 @@ namespace Cézanne.Core.Service
 
         public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            string key = reader.GetString()!;
-            return _json2code.TryGetValue(key, out T res)
+            var key = reader.GetString()!;
+            return _json2code.TryGetValue(key, out var res)
                 ? res
                 : throw new ArgumentException("Invalid json value for enum {key}");
         }

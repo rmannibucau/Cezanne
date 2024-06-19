@@ -24,7 +24,7 @@ namespace Cézanne.Doc.JsonSchema
 
         public JsonSchema For(Type type, Func<Type, PropertyInfo, bool> isIgnored)
         {
-            JsonSchema schema = _GenerateJsonSchema(type, false, isIgnored);
+            var schema = _GenerateJsonSchema(type, false, isIgnored);
             schema.Schema = "https://json-schema.org/draft/2020-12/schema";
             schema.Title = type.Name;
             schema.Description = type.GetCustomAttribute<DescriptionAttribute>()?.Description ?? type.Name;
@@ -46,19 +46,19 @@ namespace Cézanne.Doc.JsonSchema
             schema.Properties = new SortedDictionary<string, JsonSchema>(Comparer<string>.Default);
 
             IList<string>? required = null;
-            foreach (PropertyInfo property in type.GetProperties())
+            foreach (var property in type.GetProperties())
             {
                 if (!property.CanRead || isIgnored(type, property))
                 {
                     continue;
                 }
 
-                Type propertyType = property.PropertyType;
-                NullabilityInfo nullabilityInfo = _nullabilityInfoContext.Create(property);
-                bool nullable = nullabilityInfo.ReadState is NullabilityState.Nullable;
+                var propertyType = property.PropertyType;
+                var nullabilityInfo = _nullabilityInfoContext.Create(property);
+                var nullable = nullabilityInfo.ReadState is NullabilityState.Nullable;
 
-                string? jsonPropertyName = property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
-                string propertyName = jsonPropertyName ?? JsonNamingPolicy.CamelCase.ConvertName(property.Name);
+                var jsonPropertyName = property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
+                var propertyName = jsonPropertyName ?? JsonNamingPolicy.CamelCase.ConvertName(property.Name);
 
                 if (nullable)
                 {
@@ -105,8 +105,8 @@ namespace Cézanne.Doc.JsonSchema
                 }
                 else if (propertyType.IsGenericType && typeof(IEnumerable).IsAssignableFrom(propertyType))
                 {
-                    Type nestedType = propertyType.GetGenericArguments()[0];
-                    bool nestedIsNullable = Nullable.GetUnderlyingType(propertyType) != null;
+                    var nestedType = propertyType.GetGenericArguments()[0];
+                    var nestedIsNullable = Nullable.GetUnderlyingType(propertyType) != null;
                     if (nestedIsNullable)
                     {
                         nestedType = nestedType.GetGenericArguments()[0];
@@ -165,11 +165,11 @@ namespace Cézanne.Doc.JsonSchema
 
         private string? _EnumDescription(Type propertyType)
         {
-            string? prefix = propertyType.GetCustomAttribute<DescriptionAttribute>()?.Description;
-            string values = string.Join(", ", _GetEnumPropreties(propertyType)
+            var prefix = propertyType.GetCustomAttribute<DescriptionAttribute>()?.Description;
+            var values = string.Join(", ", _GetEnumPropreties(propertyType)
                     .Select(it =>
                     {
-                        string? description = it.GetCustomAttribute<DescriptionAttribute>()?.Description;
+                        var description = it.GetCustomAttribute<DescriptionAttribute>()?.Description;
                         description = description is not null && description.EndsWith('.')
                             ? description[..^1]
                             : description;
@@ -187,12 +187,12 @@ namespace Cézanne.Doc.JsonSchema
 
         private string _ToTitle(string propertyName)
         {
-            char[] chars = propertyName.ToCharArray();
+            var chars = propertyName.ToCharArray();
             StringBuilder result = new((int)(chars.Length * 1.1));
             result.Append(char.ToUpper(chars[0]));
-            for (int i = 1; i < chars.Length; i++)
+            for (var i = 1; i < chars.Length; i++)
             {
-                char c = chars[i];
+                var c = chars[i];
                 if (char.IsUpper(c))
                 {
                     result.Append(' ');

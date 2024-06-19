@@ -16,7 +16,7 @@ namespace Cézanne.Core.K8s
             IDictionary<string, object>? objectModel = null;
 
             string? line;
-            int lineNumber = 0;
+            var lineNumber = 0;
             while ((line = reader.ReadLine()) != null)
             {
                 lineNumber++;
@@ -25,13 +25,13 @@ namespace Cézanne.Core.K8s
                     continue;
                 }
 
-                int firstChar = _FindNextChar(0, line);
+                var firstChar = _FindNextChar(0, line);
                 if (firstChar >= line.Length)
                 {
                     continue;
                 }
 
-                char c = line[firstChar];
+                var c = line[firstChar];
                 switch (c)
                 {
                     case '#':
@@ -44,7 +44,7 @@ namespace Cézanne.Core.K8s
                                 return extractor(list, objectModel);
                             }
 
-                            int firstCollectionChar = _FindNextChar(firstChar + 1, line);
+                            var firstCollectionChar = _FindNextChar(firstChar + 1, line);
                             if (firstCollectionChar >= line.Length)
                             {
                                 throw new InvalidOperationException($"Invalid collection on line {lineNumber}");
@@ -55,12 +55,12 @@ namespace Cézanne.Core.K8s
                                 list.List ??= new List<object>();
                             }
 
-                            int sep = line.IndexOf(':', firstCollectionChar);
+                            var sep = line.IndexOf(':', firstCollectionChar);
                             if (sep > 0)
                             {
                                 // reparse the line as an object
                                 reader.Line = line[..firstChar] + ' ' + line[(firstChar + 1)..];
-                                object listObject = _Parse(reader, prefixLength, list,
+                                var listObject = _Parse(reader, prefixLength, list,
                                     (_, obj) => obj ?? throw new ArgumentNullException(nameof(obj)));
                                 list.List.Add(listObject);
                             }
@@ -81,7 +81,7 @@ namespace Cézanne.Core.K8s
                                 return extractor(list, objectModel);
                             }
 
-                            int sep = line.IndexOf(':');
+                            var sep = line.IndexOf(':');
                             if (sep < 0)
                             {
                                 throw new ArgumentException($"No separator on line {lineNumber}");
@@ -89,12 +89,12 @@ namespace Cézanne.Core.K8s
 
                             objectModel ??= new Dictionary<string, object>();
 
-                            string key = line.Substring(firstChar, sep - firstChar);
-                            int dataStart = _FindNextChar(sep + 1, line);
+                            var key = line.Substring(firstChar, sep - firstChar);
+                            var dataStart = _FindNextChar(sep + 1, line);
                             if (dataStart == line.Length)
                             {
                                 // object start
-                                object nested = _Parse(reader, prefixLength + 2, new LazyList(), _ToResult);
+                                var nested = _Parse(reader, prefixLength + 2, new LazyList(), _ToResult);
                                 objectModel[key] = nested;
                             }
                             else
@@ -112,7 +112,7 @@ namespace Cézanne.Core.K8s
 
         private object _ToValue(string line, int dataStart)
         {
-            string value = line[dataStart..].Trim();
+            var value = line[dataStart..].Trim();
             if ("{}".Equals(value) || "{ }".Equals(value))
             {
                 return ImmutableDictionary<string, object>.Empty;
@@ -143,7 +143,7 @@ namespace Cézanne.Core.K8s
 
         private int _FindNextChar(int fromValue, string line)
         {
-            int from = fromValue;
+            var from = fromValue;
             while (line.Length > from && char.IsWhiteSpace(line[from]))
             {
                 from++;
@@ -167,7 +167,7 @@ namespace Cézanne.Core.K8s
             {
                 if (Line != null)
                 {
-                    string? l = Line;
+                    var l = Line;
                     Line = null;
                     return l;
                 }

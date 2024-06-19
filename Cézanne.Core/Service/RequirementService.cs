@@ -15,7 +15,7 @@ namespace Cézanne.Core.Service
                 return;
             }
 
-            foreach (Manifest.Requirement requirement in manifest.Requirements)
+            foreach (var requirement in manifest.Requirements)
             {
                 _Check(requirement);
             }
@@ -41,7 +41,7 @@ namespace Cézanne.Core.Service
 
             if (requirement.ForbiddenVersions != null)
             {
-                foreach (string version in requirement.ForbiddenVersions)
+                foreach (var version in requirement.ForbiddenVersions)
                 {
                     if (_CompareVersion(version, null))
                     {
@@ -55,18 +55,18 @@ namespace Cézanne.Core.Service
         // not using System.Version cause it is restrictive in terms of format but same spirit
         private bool _CompareVersion(string expected, bool? expectNegative)
         {
-            string[] expectedSegments = expected.Split(".");
-            string[] actualSegments = BundlebeeVersion.Split(".");
-            int segmentLoopLength = Math.Min(expectedSegments.Length, actualSegments.Length);
-            for (int i = 0; i < segmentLoopLength; i++)
+            var expectedSegments = expected.Split(".");
+            var actualSegments = BundlebeeVersion.Split(".");
+            var segmentLoopLength = Math.Min(expectedSegments.Length, actualSegments.Length);
+            for (var i = 0; i < segmentLoopLength; i++)
             {
-                string exp = expectedSegments[i];
+                var exp = expectedSegments[i];
                 if ("*" == exp)
                 {
                     continue;
                 }
 
-                string act = actualSegments[i];
+                var act = actualSegments[i];
                 if (exp == act)
                 {
                     continue;
@@ -74,9 +74,9 @@ namespace Cézanne.Core.Service
 
                 try
                 {
-                    int expInt = int.Parse(exp);
-                    int actInt = int.Parse(act);
-                    int comp = expInt - actInt;
+                    var expInt = int.Parse(exp);
+                    var actInt = int.Parse(act);
+                    var comp = expInt - actInt;
                     if (expectNegative == null && comp != 0)
                     {
                         return false;

@@ -1,6 +1,5 @@
 using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
-using Humanizer;
 using Json.Patch;
 using Json.Pointer;
 using Microsoft.Extensions.Logging;
@@ -20,8 +19,8 @@ namespace Cézanne.Core.K8s
         private readonly ApiPreloader _apiPreloader;
         private readonly IEnumerable<JsonPatch> _droppedAttributes;
         private readonly bool _dryRun;
-        private readonly bool _verbose;
         private readonly ILogger<K8SClient> _logger;
+        private readonly bool _verbose;
         private volatile bool _disposed;
         private Action? _refreshAuth;
 
@@ -46,20 +45,21 @@ namespace Cézanne.Core.K8s
                 AllowAutoRedirect = true,
                 MaxAutomaticRedirections = 5
             };
-            HttpClient = new HttpClient(HttpMessageHandler) { Timeout = TimeSpan.FromMilliseconds(configuration.Timeout) };
+            HttpClient =
+                new HttpClient(HttpMessageHandler) { Timeout = TimeSpan.FromMilliseconds(configuration.Timeout) };
             HttpClient.DefaultRequestHeaders.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json") { CharSet = "UTF-8" });
 
-            string? baseUrl = "http://localhost:8080";
+            var baseUrl = "http://localhost:8080";
             if (configuration.Base.Length > 0)
             {
                 baseUrl = configuration.Base;
             }
 
-            string? kubeconfig = configuration.Kubeconfig ??
-                                 Environment.GetEnvironmentVariable("KUBECONFIG") ??
-                                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                                     ".kube/config");
+            var kubeconfig = configuration.Kubeconfig ??
+                             Environment.GetEnvironmentVariable("KUBECONFIG") ??
+                             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                                 ".kube/config");
             if (kubeconfig != null && kubeconfig != "skip")
             {
                 KubeConfig = _LoadFromKubeConfig(kubeconfig);
@@ -139,7 +139,7 @@ namespace Cézanne.Core.K8s
         {
             lock (this)
             {
-                bool alreadyDisposed = _disposed;
+                var alreadyDisposed = _disposed;
                 if (alreadyDisposed)
                 {
                     return;
@@ -150,7 +150,7 @@ namespace Cézanne.Core.K8s
 
             await _apiPreloader.DisposeAsync();
             HttpClient.Dispose();
-            foreach (X509Certificate clientCertificate in HttpMessageHandler.ClientCertificates)
+            foreach (var clientCertificate in HttpMessageHandler.ClientCertificates)
             {
                 clientCertificate.Dispose();
             }
@@ -184,22 +184,28 @@ namespace Cézanne.Core.K8s
                 response = await Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Version = new Version(1, 1),
-                    Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+                    Content = new StringContent("{}", Encoding.UTF8, "application/json")
                 });
-                response.Headers.Add("x-dry-run", "true"); // flag for delete cases, we need another check than the status
+                response.Headers.Add("x-dry-run",
+                    "true"); // flag for delete cases, we need another check than the status
             }
             else
             {
-                response = await HttpClient.SendAsync(message, HttpCompletionOption.ResponseContentRead, new CancellationToken());
+                response = await HttpClient.SendAsync(message, HttpCompletionOption.ResponseContentRead,
+                    new CancellationToken());
             }
+
             if (_verbose)
             {
-                string responseBody = await response.Content.ReadAsStringAsync() ?? "";
-                response.Content = new StringContent(responseBody, response.Content.Headers.ContentType ?? new(contentType ?? "application/json") { CharSet = "UTF-8" });
+                var responseBody = await response.Content.ReadAsStringAsync() ?? "";
+                response.Content = new StringContent(responseBody,
+                    response.Content.Headers.ContentType ??
+                    new MediaTypeHeaderValue(contentType ?? "application/json") { CharSet = "UTF-8" });
                 _logger.LogInformation(
                     "{Method} {Uri}{RequestHeaders}\n\n{Payload}HTTP/{Version} {Status} {StatusReason}{ResponseHeaders}\n\n{ResponsePayload}",
                     method, relativeUri, _FormatHeaders(message.Headers), content?.Length > 0 ? content + "\n\n" : "",
-                    response.Version, (int)response.StatusCode, response.StatusCode, _FormatHeaders(response.Headers), responseBody);
+                    response.Version, (int)response.StatusCode, response.StatusCode, _FormatHeaders(response.Headers),
+                    responseBody);
             }
 
             return response;
@@ -211,20 +217,22 @@ namespace Cézanne.Core.K8s
             {
                 return "";
             }
-            return "\n" + string.Join("\n", headers.OrderBy(it => it.Key).Select(it => $"{it.Key}: {string.Join(',', it.Value)}"));
+
+            return "\n" + string.Join("\n",
+                headers.OrderBy(it => it.Key).Select(it => $"{it.Key}: {string.Join(',', it.Value)}"));
         }
 
         public async Task<string> ToBaseUri(JsonObject prepared)
         {
-            string kindLowerCased = prepared["kind"]!.ToString().ToLowerInvariant() + 's';
-            JsonObject metadata = prepared["metadata"]!.AsObject();
-            string namespaceValue =
-                (metadata.TryGetPropertyValue("namespace", out JsonNode? ns) && ns is not null
+            var kindLowerCased = prepared["kind"]!.ToString().ToLowerInvariant() + 's';
+            var metadata = prepared["metadata"]!.AsObject();
+            var namespaceValue =
+                (metadata.TryGetPropertyValue("namespace", out var ns) && ns is not null
                     ? ns.ToString()
                     : DefaultNamespace) ?? "default";
 
             await _apiPreloader.EnsureResourceSpec(prepared, kindLowerCased);
-            string? specPrefix = _apiPreloader[kindLowerCased];
+            var specPrefix = _apiPreloader[kindLowerCased];
             if (specPrefix is not null)
             {
                 specPrefix =
@@ -233,8 +241,8 @@ namespace Cézanne.Core.K8s
                 return $"{Base}{specPrefix}";
             }
 
-            string nsSegment = _IsSkipNameSpace(kindLowerCased) ? "" : "/namespaces/" + namespaceValue + '/';
-            string prefix = _FindApiPrefix(kindLowerCased, prepared);
+            var nsSegment = _IsSkipNameSpace(kindLowerCased) ? "" : "/namespaces/" + namespaceValue + '/';
+            var prefix = _FindApiPrefix(kindLowerCased, prepared);
             prefix = prefix.StartsWith('/') ? prefix[1..] : prefix;
             return $"{Base}{prefix}{nsSegment}{kindLowerCased}";
         }
@@ -244,7 +252,7 @@ namespace Cézanne.Core.K8s
         {
             try
             {
-                JsonNode? json = extension switch
+                var json = extension switch
                 {
                     "json" => JsonSerializer.Deserialize<JsonNode>(descriptorContent, Jsons.Options),
                     _ => Jsons.FromYaml(descriptorContent)
@@ -253,7 +261,7 @@ namespace Cézanne.Core.K8s
                 {
                     case JsonValueKind.Array:
                         {
-                            T[] results = await Task.WhenAll(json.AsArray()
+                            var results = await Task.WhenAll(json.AsArray()
                                 .GetValues<JsonObject>()
                                 .Select(async it =>
                                 {
@@ -264,9 +272,9 @@ namespace Cézanne.Core.K8s
                         }
                     case JsonValueKind.Object:
                         {
-                            JsonObject value = json.AsObject();
+                            var value = json.AsObject();
                             DescriptorItem sanitized = new(value, _SanitizeJson(value));
-                            T result = await handler(sanitized);
+                            var result = await handler(sanitized);
                             return [result];
                         }
                     default:
@@ -309,7 +317,7 @@ namespace Cézanne.Core.K8s
             while (true)
             {
                 _logger.LogTrace("waiting for {Descriptor}", descriptor);
-                bool result = false;
+                var result = false;
                 try
                 {
                     result = await evaluator();
@@ -340,12 +348,12 @@ namespace Cézanne.Core.K8s
 
         private JsonObject _SanitizeJson(JsonObject value)
         {
-            JsonObject result = value;
-            foreach (JsonPatch patch in _droppedAttributes)
+            var result = value;
+            foreach (var patch in _droppedAttributes)
             {
                 try
                 {
-                    PatchResult applied = patch.Apply(result);
+                    var applied = patch.Apply(result);
                     if (applied.IsSuccess && applied.Result is not null)
                     {
                         result = applied.Result.AsObject();
@@ -364,7 +372,7 @@ namespace Cézanne.Core.K8s
             HttpClientHandler httpMessageHandler,
             HttpRequestHeaders requestHeaders)
         {
-            if (KubeConfig is null)
+            if (KubeConfig is null || string.IsNullOrEmpty(KubeConfig.CurrentContext))
             {
                 return null;
             }
@@ -377,7 +385,7 @@ namespace Cézanne.Core.K8s
                 return null;
             }
 
-            KubeConfig.NamedContext context =
+            var context =
                 KubeConfig.Contexts.FirstOrDefault(it => it?.Name == KubeConfig.CurrentContext, null) ??
                 throw new InvalidOperationException("No kubeconfig context available");
             if (context is not { Name: not null, Context: { User: not null, Cluster: not null } })
@@ -391,9 +399,9 @@ namespace Cézanne.Core.K8s
                 DefaultNamespace = context.Context.Namespace;
             }
 
-            KubeConfig.NamedUser user = KubeConfig.Users
+            var user = KubeConfig.Users
                 .First(it => it.Name == context.Context.User);
-            KubeConfig.NamedCluster cluster = KubeConfig.Clusters
+            var cluster = KubeConfig.Clusters
                 .First(it => it.Name == context.Context.Cluster);
 
             if (cluster.Cluster?.InsecureSkipTlsVerify is true)
@@ -407,14 +415,14 @@ namespace Cézanne.Core.K8s
                 case { ClientCertificate: { } c, ClientKey: { } k }:
                     {
                         _logger.LogDebug("Using in mtls authentication");
-                        X509Certificate2 pem = X509Certificate2.CreateFromPemFile(c, k);
+                        var pem = X509Certificate2.CreateFromPemFile(c, k);
                         httpMessageHandler.ClientCertificates.Add(pem);
                         break;
                     }
                 case { ClientCertificateData: { } c, ClientKeyData: { } k }:
                     {
                         _logger.LogDebug("Using in memory mtls authentication");
-                        X509Certificate2 pem = X509Certificate2.CreateFromPem(
+                        var pem = X509Certificate2.CreateFromPem(
                             Encoding.ASCII.GetString(Convert.FromBase64String(c)),
                             Encoding.ASCII.GetString(Convert.FromBase64String(k)));
                         httpMessageHandler.ClientCertificates.Add(pem);
@@ -434,7 +442,7 @@ namespace Cézanne.Core.K8s
                         else if (user.User is { Username: not null, Password: not null })
                         {
                             _logger.LogDebug("Using username/password authentication");
-                            string value = Convert.ToBase64String(
+                            var value = Convert.ToBase64String(
                                 Encoding.ASCII.GetBytes($"{user.User.Username}:{user.User.Password}"));
                             requestHeaders.Authorization = new AuthenticationHeaderValue("Basic", value);
                         }
@@ -455,7 +463,7 @@ namespace Cézanne.Core.K8s
             string tokenFile)
         {
             _logger.LogDebug("Using token file authentication");
-            DateTime validUntil = DateTime.Now.AddMinutes(1);
+            var validUntil = DateTime.Now.AddMinutes(1);
             _refreshAuth = () =>
             {
                 if (File.Exists(tokenFile) &&
@@ -483,7 +491,7 @@ namespace Cézanne.Core.K8s
         {
             if (cluster.CertificateAuthorityData is not null)
             {
-                string pem = Encoding.ASCII.GetString(Convert.FromBase64String(cluster.CertificateAuthorityData));
+                var pem = Encoding.ASCII.GetString(Convert.FromBase64String(cluster.CertificateAuthorityData));
                 httpMessageHandler.ClientCertificates.Add(X509Certificate2.CreateFromPem(pem));
             }
             else if (cluster.CertificateAuthority is not null && File.Exists(cluster.CertificateAuthority))
@@ -528,44 +536,44 @@ namespace Cézanne.Core.K8s
             // custom mapping until we impl the light parser with reflection reusing json model/typeinfo?
             KubeConfig config = new();
 
-            if (obj.TryGetValue("namespace", out object? ns))
+            if (obj.TryGetValue("namespace", out var ns))
             {
                 config.Namespace = ns as string;
             }
 
-            if (obj.TryGetValue("current-context", out object? cc))
+            if (obj.TryGetValue("current-context", out var cc))
             {
                 config.CurrentContext = cc as string;
             }
 
-            if (obj.TryGetValue("skip-tls-verify", out object? stv))
+            if (obj.TryGetValue("skip-tls-verify", out var stv))
             {
                 config.SkipTlsVerify = bool.Parse(stv as string ?? "false");
             }
 
-            if (obj.TryGetValue("clusters", out object? clusters))
+            if (obj.TryGetValue("clusters", out var clusters))
             {
                 config.Clusters = (clusters as IEnumerable<object> ?? [])
                     .Cast<IDictionary<string, object>>()
                     .Select(it =>
                     {
-                        IDictionary<string, object> clusterData = it["cluster"] as IDictionary<string, object> ??
-                                                                  ImmutableDictionary<string, object>.Empty;
+                        var clusterData = it["cluster"] as IDictionary<string, object> ??
+                                          ImmutableDictionary<string, object>.Empty;
                         return new KubeConfig.NamedCluster
                         {
                             Name = it["name"] as string,
                             Cluster = new KubeConfig.Cluster
                             {
                                 Server =
-                                    clusterData.TryGetValue("server", out object? server) ? server as string : Base,
+                                    clusterData.TryGetValue("server", out var server) ? server as string : Base,
                                 InsecureSkipTlsVerify =
-                                    clusterData.TryGetValue("insecure-skip-tls-verify", out object? istv) &&
+                                    clusterData.TryGetValue("insecure-skip-tls-verify", out var istv) &&
                                     bool.Parse(istv as string ?? "false"),
                                 CertificateAuthorityData =
-                                    clusterData.TryGetValue("certificate-authority-data", out object? cad)
+                                    clusterData.TryGetValue("certificate-authority-data", out var cad)
                                         ? cad as string
                                         : null,
-                                CertificateAuthority = clusterData.TryGetValue("certificate-authority", out object? ca)
+                                CertificateAuthority = clusterData.TryGetValue("certificate-authority", out var ca)
                                     ? ca as string
                                     : null
                             }
@@ -574,36 +582,36 @@ namespace Cézanne.Core.K8s
                     .ToList();
             }
 
-            if (obj.TryGetValue("users", out object? users))
+            if (obj.TryGetValue("users", out var users))
             {
                 config.Users = (users as IEnumerable<object> ?? [])
                     .Cast<IDictionary<string, object>>()
                     .Select(it =>
                     {
-                        IDictionary<string, object> user = it["user"] as IDictionary<string, object> ??
-                                                           ImmutableDictionary<string, object>.Empty;
+                        var user = it["user"] as IDictionary<string, object> ??
+                                   ImmutableDictionary<string, object>.Empty;
                         return new KubeConfig.NamedUser
                         {
                             Name = it["name"] as string,
                             User = new KubeConfig.User
                             {
-                                Token = user.TryGetValue("token", out object? token) ? token as string : null,
+                                Token = user.TryGetValue("token", out var token) ? token as string : null,
                                 TokenFile =
-                                    user.TryGetValue("token", out object? tokenFile) ? tokenFile as string : null,
-                                ClientCertificateData = user.TryGetValue("client-certificate-data", out object? ccd)
+                                    user.TryGetValue("token", out var tokenFile) ? tokenFile as string : null,
+                                ClientCertificateData = user.TryGetValue("client-certificate-data", out var ccd)
                                     ? ccd as string
                                     : null,
                                 ClientKeyData =
-                                    user.TryGetValue("client-key-data", out object? ckd) ? ckd as string : null,
+                                    user.TryGetValue("client-key-data", out var ckd) ? ckd as string : null,
                                 ClientCertificate =
-                                    user.TryGetValue("client-certificate", out object? clientCertificate)
+                                    user.TryGetValue("client-certificate", out var clientCertificate)
                                         ? clientCertificate as string
                                         : null,
                                 ClientKey =
-                                    user.TryGetValue("client-key", out object? clientKey) ? clientKey as string : null,
+                                    user.TryGetValue("client-key", out var clientKey) ? clientKey as string : null,
                                 Username =
-                                    user.TryGetValue("username", out object? username) ? username as string : null,
-                                Password = user.TryGetValue("username", out object? password)
+                                    user.TryGetValue("username", out var username) ? username as string : null,
+                                Password = user.TryGetValue("username", out var password)
                                     ? password as string
                                     : null
                             }
@@ -612,14 +620,14 @@ namespace Cézanne.Core.K8s
                     .ToList();
             }
 
-            if (obj.TryGetValue("contexts", out object? contexts))
+            if (obj.TryGetValue("contexts", out var contexts))
             {
                 config.Contexts = (contexts as IEnumerable<object> ?? [])
                     .Cast<IDictionary<string, object>>()
                     .Select(it =>
                     {
-                        IDictionary<string, object> contextData = it["context"] as IDictionary<string, object> ??
-                                                                  ImmutableDictionary<string, object>.Empty;
+                        var contextData = it["context"] as IDictionary<string, object> ??
+                                          ImmutableDictionary<string, object>.Empty;
                         return new KubeConfig.NamedContext
                         {
                             Name = it["name"] as string,
@@ -627,7 +635,7 @@ namespace Cézanne.Core.K8s
                             {
                                 Cluster = contextData["cluster"] as string,
                                 User = contextData["user"] as string,
-                                Namespace = contextData.TryGetValue("namespace", out object? clusterNs)
+                                Namespace = contextData.TryGetValue("namespace", out var clusterNs)
                                     ? clusterNs as string
                                     : DefaultNamespace
                             }

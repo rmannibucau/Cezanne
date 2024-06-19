@@ -3,7 +3,6 @@ using Json.More;
 using Json.Pointer;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace Cézanne.Core.Service
 {
@@ -14,8 +13,8 @@ namespace Cézanne.Core.Service
             switch (condition.TypeValue)
             {
                 case Manifest.AwaitConditionType.JsonPointer:
-                    JsonPointer pointer = JsonPointer.Parse(condition.Pointer ?? "");
-                    JsonElement? json = pointer.Evaluate(body);
+                    var pointer = JsonPointer.Parse(condition.Pointer ?? "");
+                    var json = pointer.Evaluate(body);
                     if (json is null || !json.HasValue)
                     {
                         logger.LogDebug("No result for {condition} from JSON={body} and evaluation={json}", condition,
@@ -23,27 +22,27 @@ namespace Cézanne.Core.Service
                         return false;
                     }
 
-                    string evaluated = json.Value.ToString();
-                    bool result = _Evaluate(condition.OperatorType ?? Manifest.JsonPointerOperator.EqualsValue,
+                    var evaluated = json.Value.ToString();
+                    var result = _Evaluate(condition.OperatorType ?? Manifest.JsonPointerOperator.EqualsValue,
                         condition.Value?.ToString() ?? "", evaluated);
                     logger.LogDebug("{condition}={result} from JSON={body} and evaluation={json}", condition, result,
                         body, json);
                     return result;
                 case Manifest.AwaitConditionType.StatusCondition:
-                    JsonElement? conditions = JsonPointer.Parse("/status/conditions").Evaluate(body);
+                    var conditions = JsonPointer.Parse("/status/conditions").Evaluate(body);
                     if (conditions is null || !conditions.HasValue || conditions.Value.ValueKind != JsonValueKind.Array)
                     {
                         logger.LogDebug("No conditions from {body}", body);
                         return false;
                     }
 
-                    bool eval = conditions.Value.EnumerateArray()
+                    var eval = conditions.Value.EnumerateArray()
                         .Where(it => it.ValueKind == JsonValueKind.Object)
                         .Select(it => it.AsNode()?.AsObject())
-                        .Any(it => it!.TryGetPropertyValue("type", out JsonNode? type) &&
+                        .Any(it => it!.TryGetPropertyValue("type", out var type) &&
                                    type?.GetValueKind() == JsonValueKind.String &&
                                    type.ToString() == condition.ConditionType &&
-                                   it.TryGetPropertyValue("status", out JsonNode? status) &&
+                                   it.TryGetPropertyValue("status", out var status) &&
                                    status?.ToString() == (condition.Value?.ToString() ?? ""));
                     logger.LogDebug("{condition}={eval} from JSON={body}", condition, eval, body);
                     return eval;

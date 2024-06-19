@@ -44,6 +44,6 @@
       <Delete Files="$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\README.md;$(BaseOutputPath)\templates\SingulinkFX-$(SingulinkFXVersion)\LICENSE;$(BaseOutputPath)\templates\singulinkfx.zip" />
     </Target-->
     <Target Name="ServeSite" DependsOnTargets="Build">
-        <Exec Command="$(OutDir)\$(MSBuildProjectName) true"/>
+        <Exec Command="$(OutDir)\$(MSBuildProjectName) true" />
     </Target>
 </Project>

@@ -16,9 +16,9 @@ namespace Cézanne.Core.Service
 
         private bool _Evaluate(Manifest.Condition condition)
         {
-            bool evaluationResult = string.IsNullOrEmpty(condition.Key) ||
-                                    _ToValue(condition.Value) == _Read(condition.Type ?? Manifest.ConditionType.Env,
-                                        condition.Key);
+            var evaluationResult = string.IsNullOrEmpty(condition.Key) ||
+                                   _ToValue(condition.Value) == _Read(condition.Type ?? Manifest.ConditionType.Env,
+                                       condition.Key);
             return (condition.Negate ?? false) != evaluationResult;
         }
 

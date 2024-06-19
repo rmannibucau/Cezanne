@@ -17,14 +17,22 @@ namespace Cézanne.Core.Cli
 
         public int Run(string[] args)
         {
-            using Registrar container = _CreateContainer(args);
-            return _Cli(container, args);
+            return Run(args, (app, _) => app.Run(args));
+        }
+
+        public int Run(string[] args, Func<CommandApp, IServiceCollection, int> runner)
+        {
+            var (container, collection) = _CreateContainer(args);
+            using (container)
+            {
+                return runner(_Cli(container, args), collection);
+            }
         }
 
 
-        private int _Cli(ITypeRegistrar registrar, string[] args)
+        private CommandApp _Cli(ITypeRegistrar registrar, string[] args)
         {
-            CommandApp app = new(registrar);
+            var app = new CommandApp(registrar);
             app.Configure(config =>
             {
 #if DEBUG
@@ -32,42 +40,42 @@ namespace Cézanne.Core.Cli
                 config.ValidateExamples();
 #endif
 
-                config.SetApplicationName("cezanne");
+                config.UseAssemblyInformationalVersion().SetApplicationName("cezanne");
 
                 config.AddCommand<ApplyCommand>("apply")
                     .WithDescription("Apply/deploy a set of descriptors from a root one.");
                 config.AddCommand<DeleteCommand>("delete")
                     .WithDescription("Delete an alveolus deployment by deleting all related descriptors.");
             });
-            return app.Run(args);
+            return app;
         }
 
 
-        private Registrar _CreateContainer(string[] args)
+        private (Registrar, IServiceCollection) _CreateContainer(string[] args)
         {
             ServiceCollection services = new();
 
-            LogLevel level =
+            var level =
                 Enum.Parse<LogLevel>(Environment.GetEnvironmentVariable("CEZANNE_LOG_LEVEL") ?? "Information");
             services.AddLogging(config => config
                 .AddProvider(new SpectreLoggerProvider(level))
                 .SetMinimumLevel(level));
 
             // shared services configuration
-            IConfigurationRoot binder = new ConfigurationBuilder()
+            var binder = new ConfigurationBuilder()
                 .AddJsonFile("cezanne.json", true)
-                .AddEnvironmentVariables("CEZANNE_")
+                .AddEnvironmentVariables()
                 .AddCommandLine(args)
                 .Build();
-            IConfigurationSection cezanneSection = binder.GetSection("cezanne");
+            var cezanneSection = binder.GetSection("cezanne");
 
-            K8SClientConfiguration k8s = K8SClientConfiguration ?? new K8SClientConfiguration();
+            var k8s = K8SClientConfiguration ?? new K8SClientConfiguration();
             if (K8SClientConfiguration is null)
             {
                 cezanneSection.GetSection("kubernetes").Bind(k8s);
             }
 
-            MavenConfiguration maven = MavenConfiguration ?? new MavenConfiguration();
+            var maven = MavenConfiguration ?? new MavenConfiguration();
             if (MavenConfiguration is null)
             {
                 cezanneSection.GetSection("maven").Bind(maven);
@@ -101,7 +109,7 @@ namespace Cézanne.Core.Cli
             services.AddSingleton<ApplyCommand>();
             services.AddSingleton<DeleteCommand>();
 
-            return new Registrar(services);
+            return (new Registrar(services), services);
         }
 
         internal sealed class Registrar(IServiceCollection services) : ITypeRegistrar, IDisposable

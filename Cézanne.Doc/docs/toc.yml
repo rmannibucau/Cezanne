@@ -4,5 +4,7 @@
   href: manifest-reference.md
 - name: Configuration
   href: configuration.md
+- name: Commands
+  href: commands/index.md
 - name: Developers
   href: developers.md

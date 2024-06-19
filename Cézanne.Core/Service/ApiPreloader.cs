@@ -19,7 +19,7 @@ namespace Cézanne.Core.Service
 
         private readonly IDictionary<string, Task> _pendingFetches = new ConcurrentDictionary<string, Task>();
 
-        public string? this[string key] => _baseUrls.TryGetValue(key, out string? url) ? url : null;
+        public string? this[string key] => _baseUrls.TryGetValue(key, out var url) ? url : null;
 
         public async ValueTask DisposeAsync()
         {
@@ -30,7 +30,7 @@ namespace Cézanne.Core.Service
         {
             string basePath;
             if (!_baseUrls.ContainsKey(kindLowerCased) &&
-                desc.TryGetPropertyValue("apiVersion", out JsonNode? apiVersion) && apiVersion?.ToString() != "v1")
+                desc.TryGetPropertyValue("apiVersion", out var apiVersion) && apiVersion?.ToString() != "v1")
             {
                 basePath = "/apis/" + desc["apiVersion"];
             }
@@ -41,7 +41,7 @@ namespace Cézanne.Core.Service
 
             await _ChainedAPIResourceListFetch(basePath, async () =>
             {
-                HttpResponseMessage response = await k8s.SendAsync(HttpMethod.Get, basePath);
+                var response = await k8s.SendAsync(HttpMethod.Get, basePath);
                 await _ProcessResourceListDefinition(basePath, response);
             });
         }
@@ -55,16 +55,16 @@ namespace Cézanne.Core.Service
                 switch (response.StatusCode)
                 {
                     case HttpStatusCode.OK:
-                        APIResourceList? list =
+                        var list =
                             JsonSerializer.Deserialize<APIResourceList>(await response.Content.ReadAsStringAsync(),
                                 _jsonOptions);
                         if (list is not null)
                         {
-                            foreach (APIResource resource in
+                            foreach (var resource in
                                      list.Resources.OrderBy(it => it.Name ?? it.SingularName ?? "z"))
                             {
-                                string key = resource.Kind.ToLowerInvariant() + 's';
-                                string value = (resource is { Group: not null, Version: not null }
+                                var key = resource.Kind.ToLowerInvariant() + 's';
+                                var value = (resource is { Group: not null, Version: not null }
                                         ? $"/apis/{resource.Group}/{resource.Version}"
                                         : basePath) +
                                     (resource.Namespaced ? "/namespaces/${namespace}" : "") +
@@ -109,12 +109,12 @@ namespace Cézanne.Core.Service
 
             if (missing)
             {
-                Task pending = _pendingFetches.TryGetValue(marker, out Task? p) ? p : Task.CompletedTask;
+                var pending = _pendingFetches.TryGetValue(marker, out var p) ? p : Task.CompletedTask;
                 await pending;
                 return;
             }
 
-            Task current = supplier();
+            var current = supplier();
             _pendingFetches.Add(marker, current);
             try
             {

@@ -11,13 +11,13 @@ namespace Cézanne.Core.Service
             string? id)
         {
             using StreamReader reader = new(manifest());
-            string content = _substitutor.Replace(null, null, reader.ReadToEnd().Trim(), id);
-            Manifest mf = JsonSerializer.Deserialize<Manifest>(content, Jsons.Options) ??
-                          throw new ArgumentException($"Invalid manifest descriptor: {content}", nameof(location));
+            var content = _substitutor.Replace(null, null, reader.ReadToEnd().Trim(), id);
+            var mf = JsonSerializer.Deserialize<Manifest>(content, Jsons.Options) ??
+                     throw new ArgumentException($"Invalid manifest descriptor: {content}", nameof(location));
 
             if (!string.IsNullOrEmpty(location) && mf.Recipes.Any())
             {
-                foreach (Manifest.Descriptor it in mf.Recipes.SelectMany(it => it.Descriptors ?? [])
+                foreach (var it in mf.Recipes.SelectMany(it => it.Descriptors ?? [])
                              .Where(it => it.Location == null) ?? [])
                 {
                     it.Location = location;
@@ -32,12 +32,12 @@ namespace Cézanne.Core.Service
 
         private void _InitInterpolateFlags(Manifest manifest)
         {
-            foreach (Manifest.Recipe recipe in manifest.Recipes)
+            foreach (var recipe in manifest.Recipes)
             {
-                bool parentValue = recipe.InterpolateDescriptors ?? manifest.InterpolateRecipe;
+                var parentValue = recipe.InterpolateDescriptors ?? manifest.InterpolateRecipe;
                 if ((recipe.Descriptors ?? []).Any())
                 {
-                    foreach (Manifest.Descriptor descriptor in recipe.Descriptors ?? [])
+                    foreach (var descriptor in recipe.Descriptors ?? [])
                     {
                         if (!descriptor.HasInterpolateValue())
                         {
@@ -57,9 +57,9 @@ namespace Cézanne.Core.Service
                 return;
             }
 
-            foreach (Manifest.ManifestReference reference in main.References)
+            foreach (var reference in main.References)
             {
-                Manifest loaded = ReadManifest(location,
+                var loaded = ReadManifest(location,
                     () => relativeResolver(reference.Path ??
                                            throw new ArgumentException("No path set in reference", nameof(reference))),
                     relativeResolver, id);

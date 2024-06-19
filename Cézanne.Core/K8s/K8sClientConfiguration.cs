@@ -7,7 +7,6 @@ namespace Cézanne.Core.K8s
     [Description("Configuration of the Kubernetes client.")]
     public record K8SClientConfiguration
     {
-
         [Description("Kubernetes HTTP client timeout in milliseconds.")]
         public int Timeout { get; set; } = 60_000;
 
@@ -33,9 +32,10 @@ namespace Cézanne.Core.K8s
         [Description("Location or inline kubeconfig (default context being the one used).")]
         public string? Kubeconfig { get; set; }
 
-        [Description("JSON-Pointers of dropped JSON nodes from the descriptors (enables to inject documentation for example or schema for completion).")]
+        [Description(
+            "JSON-Pointers of dropped JSON nodes from the descriptors (enables to inject documentation for example or schema for completion).")]
         public IEnumerable<string>? ImplicitlyDroppedAttributes { get; set; } =
-                    ["/$schema", "/$bundlebeeIgnoredLintingRules"];
+            ["/$schema", "/$bundlebeeIgnoredLintingRules"];
 
         [Description("Should API calls be skipped and mocked with a HTTP 200.")]
         public bool DryRun { get; set; } = false;

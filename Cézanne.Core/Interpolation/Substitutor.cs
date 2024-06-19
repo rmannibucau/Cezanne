@@ -44,7 +44,7 @@ namespace Cézanne.Core.Interpolation
 
         public T WithContext<T>(IDictionary<string, string> placeholders, Func<T> provider)
         {
-            IDictionary<string, string> old = contextualPlaceholders;
+            var old = contextualPlaceholders;
             contextualPlaceholders = placeholders;
             try
             {
@@ -73,10 +73,10 @@ namespace Cézanne.Core.Interpolation
                 return _Handlebars(alveolus, desc, source, id);
             }
 
-            string current = source;
+            var current = source;
             do
             {
-                string previous = current;
+                var previous = current;
                 current = _Substitute(alveolus, desc, current, 0, id);
                 if (previous == current)
                 {
@@ -93,8 +93,8 @@ namespace Cézanne.Core.Interpolation
                 return input;
             }
 
-            int from = 0;
-            int start = -1;
+            var from = 0;
+            var start = -1;
             while (from < input.Length)
             {
                 start = input.IndexOf(Prefix, from, StringComparison.Ordinal);
@@ -111,30 +111,30 @@ namespace Cézanne.Core.Interpolation
                 from = start + 1;
             }
 
-            int keyStart = start + Prefix.Length;
-            int end = input.IndexOf(Suffix, keyStart, StringComparison.Ordinal);
+            var keyStart = start + Prefix.Length;
+            var end = input.IndexOf(Suffix, keyStart, StringComparison.Ordinal);
             if (end < 0)
             {
                 return input;
             }
 
-            string key = input.Substring(start + Prefix.Length, end - (start + Prefix.Length));
-            int nested = key.IndexOf(Prefix, StringComparison.Ordinal);
+            var key = input.Substring(start + Prefix.Length, end - (start + Prefix.Length));
+            var nested = key.IndexOf(Prefix, StringComparison.Ordinal);
             if (nested >= 0 && !(nested > 0 && key[nested - 1] == Escape))
             {
-                string nestedPlaceholder = key + Suffix;
-                string newKey = _Substitute(alveolus, descriptor, nestedPlaceholder, iteration + 1, id);
+                var nestedPlaceholder = key + Suffix;
+                var newKey = _Substitute(alveolus, descriptor, nestedPlaceholder, iteration + 1, id);
                 return input.Replace(nestedPlaceholder, newKey);
             }
 
-            string startOfString = input[..start];
-            string endOfString = input[(end + Suffix.Length)..];
+            var startOfString = input[..start];
+            var endOfString = input[(end + Suffix.Length)..];
 
-            int sep = key.IndexOf(ValueDelimiter, StringComparison.Ordinal);
+            var sep = key.IndexOf(ValueDelimiter, StringComparison.Ordinal);
             if (sep > 0)
             {
-                string actualKey = key[..sep];
-                string fallback = key[(sep + ValueDelimiter.Length)..];
+                var actualKey = key[..sep];
+                var fallback = key[(sep + ValueDelimiter.Length)..];
                 return startOfString + _DoGetOrDefault(alveolus, descriptor, actualKey, fallback, id) + endOfString;
             }
 
@@ -143,7 +143,7 @@ namespace Cézanne.Core.Interpolation
 
         private string _Handlebars(Manifest.Recipe? recipe, LoadedDescriptor? desc, string source, string? id)
         {
-            IHandlebars? hb = Handlebars.Create();
+            var hb = Handlebars.Create();
 
             HandlebarsHelper base64 = (output, context, args) =>
                 Convert.ToBase64String(Encoding.UTF8.GetBytes((string)args[1]));
@@ -215,7 +215,7 @@ namespace Cézanne.Core.Interpolation
         {
             if (placeholder.StartsWith("bundlebee-directory-json-key-value-pairs-content:"))
             {
-                string result = Replace(
+                var result = Replace(
                     recipe, desc,
                     "{{bundlebee-directory-json-key-value-pairs:" +
                     placeholder["bundlebee-directory-json-key-value-pairs-content:".Length..] + "}}", id).Trim();
@@ -225,10 +225,10 @@ namespace Cézanne.Core.Interpolation
             if (placeholder.StartsWith("bundlebee-directory-json-key-value-pairs:"))
             {
                 // enable easy injection of labels or more likely annotations
-                string directory = placeholder["bundlebee-directory-json-key-value-pairs:".Length..];
+                var directory = placeholder["bundlebee-directory-json-key-value-pairs:".Length..];
                 // we support the pattern "/my/dir" and will take all subfiles or "/my/dir/*.ext" and will filter files by a glob pattern
-                int lastSep = directory.LastIndexOf("/*", StringComparison.Ordinal);
-                FileInfo[] files =
+                var lastSep = directory.LastIndexOf("/*", StringComparison.Ordinal);
+                var files =
                     (lastSep < 0 ? new DirectoryInfo(directory) : new DirectoryInfo(directory[..lastSep]))
                     .GetFiles(lastSep < 0 ? "*" : directory[(lastSep + 1)..],
                         new EnumerationOptions
@@ -239,7 +239,7 @@ namespace Cézanne.Core.Interpolation
                             RecurseSubdirectories = false,
                             ReturnSpecialDirectories = false
                         });
-                SortedDictionary<string, string> data = files.Aggregate(new SortedDictionary<string, string>(),
+                var data = files.Aggregate(new SortedDictionary<string, string>(),
                     (agg, file) =>
                     {
                         agg.Add(file.Name.Replace("____", "/"), File.ReadAllText(file.FullName));
@@ -251,19 +251,19 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("bundlebee-inline-file:"))
             {
-                string path = placeholder["bundlebee-inline-file:".Length..];
+                var path = placeholder["bundlebee-inline-file:".Length..];
                 return File.Exists(path) ? File.ReadAllText(path) : null;
             }
 
             if (placeholder.StartsWith("bundlebee-inlined-file:"))
             {
-                string path = placeholder["bundlebee-inlined-file:".Length..];
+                var path = placeholder["bundlebee-inlined-file:".Length..];
                 return File.Exists(path) ? File.ReadAllText(path).Replace("\n", " ") : null;
             }
 
             if (placeholder.StartsWith("bundlebee-quote-escaped-inlined-file:"))
             {
-                string path = placeholder["bundlebee-inlined-file:".Length..];
+                var path = placeholder["bundlebee-inlined-file:".Length..];
                 return File.Exists(path)
                     ? File.ReadAllText(path)
                         .Replace("'", "\\'")
@@ -274,13 +274,13 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("bundlebee-base64-file:"))
             {
-                string path = placeholder["bundlebee-base64-file:".Length..];
+                var path = placeholder["bundlebee-base64-file:".Length..];
                 return File.Exists(path) ? Convert.ToBase64String(File.ReadAllBytes(path)) : null;
             }
 
             if (placeholder.StartsWith("bundlebee-base64-decode-file:"))
             {
-                string path = placeholder["bundlebee-base64-decode-file:".Length..];
+                var path = placeholder["bundlebee-base64-decode-file:".Length..];
                 return File.Exists(path)
                     ? Encoding.UTF8.GetString(Convert.FromBase64String(File.ReadAllText(path)))
                     : null;
@@ -299,13 +299,13 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("bundlebee-json-inline-file:"))
             {
-                string path = placeholder["bundlebee-json-inline-file:".Length..];
+                var path = placeholder["bundlebee-json-inline-file:".Length..];
                 if (!File.Exists(path))
                 {
                     return null;
                 }
 
-                string result = Replace(recipe, desc, File.ReadAllText(path), id);
+                var result = Replace(recipe, desc, File.ReadAllText(path), id);
                 using MemoryStream memoryStream = new();
                 using (Utf8JsonWriter utf8JsonWriter = new(memoryStream,
                            new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
@@ -360,14 +360,14 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("bundlebee-digest:"))
             {
-                string text = placeholder["bundlebee-digest:".Length..];
-                int sep1 = text.IndexOf(',');
-                int sep2 = text.IndexOf(',', sep1 + 1);
-                string digestAlgo = text[(sep1 + 1)..sep2].Trim().ToUpperInvariant();
-                string encoding = text[..sep1].Trim();
+                var text = placeholder["bundlebee-digest:".Length..];
+                var sep1 = text.IndexOf(',');
+                var sep2 = text.IndexOf(',', sep1 + 1);
+                var digestAlgo = text[(sep1 + 1)..sep2].Trim().ToUpperInvariant();
+                var encoding = text[..sep1].Trim();
 
-                using HashAlgorithm digest = _FindHashAlgorithm(digestAlgo);
-                byte[] value = digest.ComputeHash(Encoding.UTF8.GetBytes(text[(sep2 + 1)..].Trim()));
+                using var digest = _FindHashAlgorithm(digestAlgo);
+                var value = digest.ComputeHash(Encoding.UTF8.GetBytes(text[(sep2 + 1)..].Trim()));
                 return encoding switch
                 {
                     "base64" => Convert.ToBase64String(value),
@@ -377,8 +377,8 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("bundlebee-decipher:"))
             {
-                string confAndValue = placeholder["bundlebee-decipher:".Length..];
-                int sep = confAndValue.IndexOf(',');
+                var confAndValue = placeholder["bundlebee-decipher:".Length..];
+                var sep = confAndValue.IndexOf(',');
                 if (sep < 0)
                 {
                     throw new ArgumentException("Usage: {{bundlebee-decipher:$masterKeyPlaceholder,$cipheredValue}}");
@@ -389,8 +389,8 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("bundlebee-indent:"))
             {
-                string sub = placeholder["bundlebee-indent:".Length..];
-                int sep = sub.IndexOf(':');
+                var sub = placeholder["bundlebee-indent:".Length..];
+                var sep = sub.IndexOf(':');
                 if (sep < 0)
                 {
                     return sub;
@@ -407,8 +407,8 @@ namespace Cézanne.Core.Interpolation
                     return null;
                 }
 
-                string name = placeholder["kubeconfig.cluster.".Length..(placeholder.Length - ".ip".Length)];
-                string? url = k8s.KubeConfig == null
+                var name = placeholder["kubeconfig.cluster.".Length..(placeholder.Length - ".ip".Length)];
+                var url = k8s.KubeConfig == null
                     ? k8s.Base
                     : k8s.KubeConfig.Clusters?
                         .FirstOrDefault(it => it.Name == name,
@@ -419,7 +419,7 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("kubernetes."))
             {
-                string? value = _FindKubernetesValue(placeholder, "\\.");
+                var value = _FindKubernetesValue(placeholder, "\\.");
                 if (value != null)
                 {
                     return value;
@@ -429,7 +429,7 @@ namespace Cézanne.Core.Interpolation
             // depending data key entry name we can switch the separator depending first one
             if (placeholder.StartsWith("kubernetes/"))
             {
-                string? value = _FindKubernetesValue(placeholder, "\\.");
+                var value = _FindKubernetesValue(placeholder, "\\.");
                 if (value != null)
                 {
                     return value;
@@ -476,17 +476,17 @@ namespace Cézanne.Core.Interpolation
         private string? _FindKubernetesValue(string key, string sep)
         {
             // depending the key we should accept both
-            string[] segments = key.Split(sep);
+            var segments = key.Split(sep);
             if (segments.Length >= 8 && segments.Length <= 10 && segments is
                     ["kubernetes", _, "serviceaccount", _, "secrets", _, "data", ..])
             {
                 // kubernetes.<namespace>.serviceaccount.<account name>.secrets.<secret name prefix>.data.<entry name>[.<timeout in seconds>]
-                string namespaceName = segments[1];
-                string account = segments[3];
-                string secretPrefix = segments[5];
-                string dataName = segments[7];
-                int timeout = segments.Length == 9 ? int.Parse(segments[8]) : 120;
-                string? secret = _FindSecret(namespaceName, account, secretPrefix, dataName, timeout);
+                var namespaceName = segments[1];
+                var account = segments[3];
+                var secretPrefix = segments[5];
+                var dataName = segments[7];
+                var timeout = segments.Length == 9 ? int.Parse(segments[8]) : 120;
+                var secret = _FindSecret(namespaceName, account, secretPrefix, dataName, timeout);
                 if (segments.Length == 10 && secret is not null)
                 {
                     return _Indent(secret, new string(' ', int.Parse(segments[9])), false);
@@ -502,14 +502,14 @@ namespace Cézanne.Core.Interpolation
         private string? _FindSecret(string namespaceValue, string account, string secretPrefix,
             string dataKey, int timeout)
         {
-            int iterations = 0;
+            var iterations = 0;
             JsonSerializerOptions jsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
-            DateTime end = DateTime.Now.AddSeconds(timeout);
+            var end = DateTime.Now.AddSeconds(timeout);
             do
             {
                 iterations++;
-                using HttpResponseMessage? result = k8s
+                using var result = k8s
                     ?.SendAsync(HttpMethod.Get, $"/api/v1/namespaces/{namespaceValue}/serviceaccounts/{account}")
                     .GetAwaiter()
                     .GetResult();
@@ -521,15 +521,15 @@ namespace Cézanne.Core.Interpolation
                 }
 
                 // todo: validate casting
-                string? serviceAccountJson = result?.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                JsonObject? serviceAccount =
+                var serviceAccountJson = result?.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                var serviceAccount =
                     JsonSerializer.Deserialize<JsonObject>(serviceAccountJson ?? "{}", jsonOptions);
-                JsonNode? secrets = serviceAccount?["secrets"];
+                var secrets = serviceAccount?["secrets"];
                 if (secrets is IEnumerable<JsonObject> objs)
                 {
-                    JsonObject selectedSecret =
+                    var selectedSecret =
                         objs.First(it => it["name"]?.ToString().StartsWith(secretPrefix) ?? false);
-                    using HttpResponseMessage? secretResponse = k8s?.SendAsync(HttpMethod.Get,
+                    using var secretResponse = k8s?.SendAsync(HttpMethod.Get,
                             $"/api/v1/namespaces/{namespaceValue}/serviceaccounts/{selectedSecret["name"]}")
                         .GetAwaiter()
                         .GetResult();
@@ -540,15 +540,15 @@ namespace Cézanne.Core.Interpolation
                         continue;
                     }
 
-                    JsonObject? secretObj = JsonSerializer.Deserialize<JsonObject>(
+                    var secretObj = JsonSerializer.Deserialize<JsonObject>(
                         secretResponse?.Content.ReadAsStringAsync().GetAwaiter().GetResult() ?? "{}", jsonOptions);
                     if (secretObj?.ContainsKey("data") is false)
                     {
                         continue;
                     }
 
-                    JsonObject? data = secretObj?["data"]?.AsObject();
-                    JsonNode? value = data?[dataKey];
+                    var data = secretObj?["data"]?.AsObject();
+                    var value = data?[dataKey];
                     if (value is not null)
                     {
                         return Encoding.UTF8.GetString(Convert.FromBase64String(value.ToString()));
@@ -561,7 +561,7 @@ namespace Cézanne.Core.Interpolation
 
         private string _Indent(string raw, string indent, bool indentFirstLine)
         {
-            string[] lines = raw.Split('\n');
+            var lines = raw.Split('\n');
             if (indentFirstLine)
             {
                 return string.Join('\n', lines.Select(it => indent + it));

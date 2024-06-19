@@ -17,7 +17,7 @@ namespace Cézanne.Core.Tests.Service
         [Test]
         public void Read()
         {
-            Manifest manifest = reader.ReadManifest(null, () => new MemoryStream(Encoding.UTF8.GetBytes("{" +
+            var manifest = reader.ReadManifest(null, () => new MemoryStream(Encoding.UTF8.GetBytes("{" +
                 "  \"alveoli\":[" +
                 "    {" +
                 "      \"name\": \"test\"," +
@@ -37,14 +37,14 @@ namespace Cézanne.Core.Tests.Service
         [TempFolder]
         public void ReferencedZip()
         {
-            string zipLocation = Path.Combine(Temp ?? throw new ArgumentException("Temp is null", nameof(Temp)),
+            var zipLocation = Path.Combine(Temp ?? throw new ArgumentException("Temp is null", nameof(Temp)),
                 "ReferencedZip.zip");
             Directory.CreateDirectory(Temp).Create();
             using (ZipArchive zip = new(File.Open(zipLocation, FileMode.CreateNew), ZipArchiveMode.Create))
             {
                 zip.CreateEntry("bundlebee/").Open().Close(); // create the directory
 
-                using (Stream dependencyManifest = zip.CreateEntry("bundlebee/manifest.json").Open())
+                using (var dependencyManifest = zip.CreateEntry("bundlebee/manifest.json").Open())
                 {
                     dependencyManifest.Write(Encoding.UTF8.GetBytes("""
                                                                     {
@@ -54,12 +54,12 @@ namespace Cézanne.Core.Tests.Service
                                                                     """));
                 }
 
-                using Stream dependencyRef = zip.CreateEntry("bundlebee/ref1.json").Open();
+                using var dependencyRef = zip.CreateEntry("bundlebee/ref1.json").Open();
                 dependencyRef.Write(Encoding.UTF8.GetBytes("{\"alveoli\":[{\"name\":\"ref1-alveolus\"}]}"));
             }
 
-            using ZipArchive zipReader = ZipFile.OpenRead(zipLocation);
-            Manifest manifest = reader.ReadManifest(
+            using var zipReader = ZipFile.OpenRead(zipLocation);
+            var manifest = reader.ReadManifest(
                 null,
                 () => zipReader.GetEntry("bundlebee/manifest.json")?.Open() ??
                       throw new ArgumentException($"no manifest in {zipLocation}", nameof(zipLocation)),
@@ -74,14 +74,14 @@ namespace Cézanne.Core.Tests.Service
         {
             Assert.That(manifest.Recipes.Count, Is.EqualTo(1));
 
-            Manifest.Recipe recipe = manifest.Recipes.First();
+            var recipe = manifest.Recipes.First();
             Assert.Multiple(() =>
             {
                 Assert.That(recipe.Name, Is.EqualTo("test"));
                 Assert.That((recipe.Descriptors ?? []).Count, Is.EqualTo(1));
             });
 
-            Manifest.Descriptor? descriptor = recipe.Descriptors?.First();
+            var descriptor = recipe.Descriptors?.First();
             Assert.Multiple(() =>
             {
                 Assert.That(descriptor?.Type, Is.EqualTo("kubernetes"));

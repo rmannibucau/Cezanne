@@ -14,10 +14,10 @@ namespace Cézanne.Core.Tests.Service
         [TestCaseSource(nameof(DataSet))]
         public bool Eval(string condition, string input)
         {
-            Manifest.AwaitCondition cond =
+            var cond =
                 JsonSerializer.Deserialize<Manifest.AwaitCondition>(condition, Jsons.Options) ??
                 throw new ArgumentNullException(nameof(condition));
-            JsonElement data = JsonSerializer.Deserialize<JsonElement>(input);
+            var data = JsonSerializer.Deserialize<JsonElement>(input);
             try
             {
                 return _conditionJsonEvaluator.Evaluate(cond, data);

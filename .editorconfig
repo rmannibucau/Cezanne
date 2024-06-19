@@ -1,5 +1,5 @@
 # dotnet tool install -g JetBrains.ReSharper.GlobalTools
-# jb cleanupcode Cézanne.sln
+# jb cleanupcode --include='**/*.cs' Cézanne.sln
 
 # Remove the line below if you want to inherit .editorconfig settings from higher directories
 root = true

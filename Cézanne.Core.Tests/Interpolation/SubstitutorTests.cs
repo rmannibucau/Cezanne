@@ -91,8 +91,8 @@ namespace Cézanne.Core.Tests.Interpolation
         [Test]
         public void DirectoryJsonKeyValuePairsContent()
         {
-            string baseDir = Path.GetFullPath($"{AppDomain.CurrentDomain.BaseDirectory}/../../../Interpolation");
-            string text =
+            var baseDir = Path.GetFullPath($"{AppDomain.CurrentDomain.BaseDirectory}/../../../Interpolation");
+            var text =
                 $"{{{{bundlebee-directory-json-key-value-pairs-content:{baseDir}/substitutor/json/content/*.txt}}}}";
             Assert.That(
                 _SimpleReplacement(text),

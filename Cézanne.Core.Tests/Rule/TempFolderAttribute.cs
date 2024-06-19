@@ -11,7 +11,8 @@ namespace Cézanne.Core.Tests.Rule
             if (test.Fixture is ITempFolder tempFolder &&
                 test.Method?.GetCustomAttributes<TempFolderAttribute>(false).Length > 0)
             {
-                tempFolder.Temp = Path.Combine(Path.GetTempPath(), $"{test.FullName}-{(test as Test)!.Seed}");
+                tempFolder.Temp = Path.Combine(Path.GetTempPath(),
+                    $"{test.FullName}-{(test as Test)!.Seed}-{new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds()}");
                 Directory.CreateDirectory(tempFolder.Temp);
             }
         }

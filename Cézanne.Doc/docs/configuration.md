@@ -16,4 +16,4 @@ The two main configuration are related to:
 > [!TIP]
 > Because we use Microsoft configuration binder, the separator between section/properties in the environment names are not `_` but `__`, ex: `CEZANNE__KUBERNETES__KUBECONFIG`. Similarly, the integration with the command line arguments does not use `-` as separator but `:`, ex: `--cezanne:kubernetes:KubeConfig=...`
 
-[!INCLUDE [Reference](./generated/configuration/properties.json)]
+[!INCLUDE [Reference](./generated/configuration/properties.md)]
