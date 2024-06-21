@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Cézanne.Core.Descriptor;
 using Cézanne.Core.Service;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,7 +14,7 @@ namespace Cézanne.Core.Tests.Service
         public bool Eval(string condition, string input)
         {
             var cond =
-                JsonSerializer.Deserialize<Manifest.AwaitCondition>(condition, Jsons.Options)
+                JsonSerializer.Deserialize(condition, CezanneJsonContext.Default.AwaitCondition)
                 ?? throw new ArgumentNullException(nameof(condition));
             var data = JsonSerializer.Deserialize<JsonElement>(input);
             try

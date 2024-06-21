@@ -1,9 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Text;
-using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Cézanne.Core.Interpolation;
 using Cézanne.Core.Service;
@@ -111,7 +109,12 @@ namespace Cézanne.Core.Cli.Command
                                 : null,
                         descriptions.TryGetValue(it.Name, out var desc) ? desc : null
                     ));
-                    Console.WriteLine(JsonSerializer.Serialize(jsonModel, Jsons.Options));
+                    Console.WriteLine(
+                        JsonSerializer.Serialize(
+                            jsonModel,
+                            CezanneJsonContext.Default.ArgoCdJsonItemModel
+                        )
+                    );
                     break;
                 default:
                     _DoHandleFiles(settings, placheholders, descriptions);
@@ -147,7 +150,11 @@ namespace Cézanne.Core.Cli.Command
                                 })
                                 .ToList()
                         };
-                        return JsonSerializer.Serialize(model, Jsons.Options);
+                        return JsonSerializer.Serialize(
+                            model,
+                            typeof(JsonModel),
+                            CezanneJsonContext.Default
+                        );
                     }
                 );
             }
@@ -306,16 +313,9 @@ namespace Cézanne.Core.Cli.Command
                         + (
                             key.StartsWith("bundlebee-json-inline-file:")
                                 ? JsonSerializer
-                                    .Deserialize<JsonValue>(
+                                    .Deserialize(
                                         '"' + defaultValue + '"',
-                                        new JsonSerializerOptions
-                                        {
-                                            WriteIndented = true,
-                                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                            DefaultIgnoreCondition =
-                                                JsonIgnoreCondition.WhenWritingNull,
-                                            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping // UTF-8
-                                        }
+                                        CezanneJsonContext.Default.JsonValue
                                     )!
                                     .ToString()
                                 : defaultValue
@@ -344,16 +344,9 @@ namespace Cézanne.Core.Cli.Command
                                 ?
                                 // unescape json if needed
                                 JsonSerializer
-                                    .Deserialize<JsonValue>(
+                                    .Deserialize(
                                         '"' + defaultValue + '"',
-                                        new JsonSerializerOptions
-                                        {
-                                            WriteIndented = true,
-                                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                            DefaultIgnoreCondition =
-                                                JsonIgnoreCondition.WhenWritingNull,
-                                            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping // UTF-8
-                                        }
+                                        CezanneJsonContext.Default.JsonValue
                                     )!
                                     .ToString()
                                 : defaultValue

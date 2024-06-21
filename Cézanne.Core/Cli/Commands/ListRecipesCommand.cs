@@ -72,8 +72,8 @@ namespace Cézanne.Core.Cli.Command
         private string _AsJson(Manifest manifest)
         {
             return JsonSerializer.Serialize(
-                new { Items = manifest.Recipes.Select(it => it.Name).ToList() },
-                Jsons.Options
+                new ItemsWrapper { Items = manifest.Recipes.Select(it => it.Name!).ToList() },
+                CezanneJsonContext.Default.ItemsWrapper
             );
         }
 
@@ -120,6 +120,11 @@ namespace Cézanne.Core.Cli.Command
             [CommandOption("-o|--output")]
             [DefaultValue("logger")]
             public string? Output { get; set; }
+        }
+
+        public class ItemsWrapper
+        {
+            public IEnumerable<string> Items { get; set; } = [];
         }
     }
 }

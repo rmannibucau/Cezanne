@@ -80,7 +80,7 @@ namespace Cézanne.Core.Cli.Command
                                                         recipe.Configuration.Name,
                                                         JsonSerializer.Serialize(
                                                             item.Prepared,
-                                                            Jsons.Options
+                                                            CezanneJsonContext.Default.JsonObject
                                                         )
                                                     );
                                                 }
@@ -265,7 +265,10 @@ namespace Cézanne.Core.Cli.Command
                                 using var putAfterDeleteResponse = await client.SendAsync(
                                     HttpMethod.Put,
                                     uriWithQuery,
-                                    JsonSerializer.Serialize(payload, Jsons.Options),
+                                    JsonSerializer.Serialize(
+                                        payload,
+                                        CezanneJsonContext.Default.JsonObject
+                                    ),
                                     "application/json"
                                 );
                                 return putAfterDeleteResponse.StatusCode switch
@@ -292,7 +295,10 @@ namespace Cézanne.Core.Cli.Command
                             using var putResponse = await client.SendAsync(
                                 HttpMethod.Put,
                                 uriWithQuery,
-                                JsonSerializer.Serialize(payload, Jsons.Options),
+                                JsonSerializer.Serialize(
+                                    payload,
+                                    CezanneJsonContext.Default.JsonObject
+                                ),
                                 "application/json"
                             );
                             return putResponse.StatusCode switch
@@ -320,7 +326,7 @@ namespace Cézanne.Core.Cli.Command
                     var patchResponse = await client.SendAsync(
                         HttpMethod.Patch,
                         uriWithQuery,
-                        JsonSerializer.Serialize(payload, Jsons.Options),
+                        JsonSerializer.Serialize(payload, CezanneJsonContext.Default.JsonObject),
                         patchType
                     );
                     if (patchResponse.StatusCode == HttpStatusCode.UnsupportedMediaType)
@@ -329,7 +335,10 @@ namespace Cézanne.Core.Cli.Command
                         patchResponse = await client.SendAsync(
                             HttpMethod.Patch,
                             uriWithQuery,
-                            JsonSerializer.Serialize(payload, Jsons.Options),
+                            JsonSerializer.Serialize(
+                                payload,
+                                CezanneJsonContext.Default.JsonObject
+                            ),
                             "application/merge-patch+json"
                         );
                     }
@@ -353,14 +362,14 @@ namespace Cézanne.Core.Cli.Command
             using var postResponse = await client.SendAsync(
                 HttpMethod.Post,
                 baseUri,
-                JsonSerializer.Serialize(prepared, Jsons.Options),
+                JsonSerializer.Serialize(prepared, CezanneJsonContext.Default.JsonObject),
                 "application/json"
             );
             if (postResponse.StatusCode == HttpStatusCode.Conflict && retries > 0)
             {
                 // happens for service accounts for ex when implicitly created
                 var json = await postResponse.Content.ReadAsStringAsync();
-                var obj = JsonSerializer.Deserialize<JsonObject>(json, Jsons.Options);
+                var obj = JsonSerializer.Deserialize(json, CezanneJsonContext.Default.JsonObject);
                 if (
                     (obj?.TryGetPropertyValue("reason", out var reason) ?? false)
                     && reason is not null

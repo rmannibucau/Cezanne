@@ -140,7 +140,7 @@ namespace Cézanne.Core.Service
             {
                 return conditionJsonEvaluator.Evaluate(
                     condition,
-                    JsonSerializer.Deserialize<JsonElement>(body, Jsons.Options)
+                    JsonSerializer.Deserialize(body, CezanneJsonContext.Default.JsonElement)
                 );
             }
             catch (Exception ex)

@@ -323,14 +323,20 @@ namespace Cézanne.Core.Service
                             continue;
                         }
 
-                        var patchString = JsonSerializer.Serialize(patch.PatchValue, Jsons.Options);
+                        var patchString = JsonSerializer.Serialize(
+                            patch.PatchValue,
+                            CezanneJsonContext.Default.JsonArray
+                        );
                         if (patch.Interpolate ?? false)
                         {
                             patchString = substitutor.Replace(from, desc, patchString, id);
                         }
 
                         var jsonPatch =
-                            JsonSerializer.Deserialize<JsonPatch>(patchString, Jsons.Options)
+                            JsonSerializer.Deserialize(
+                                patchString,
+                                CezanneJsonContext.Default.JsonPatch
+                            )
                             ?? throw new InvalidOperationException(
                                 $"Can't read interpolated patch {patch} (interpolated={patchString})"
                             );
@@ -349,13 +355,13 @@ namespace Cézanne.Core.Service
                                 "json"
                                     => JsonSerializer.Deserialize<JsonNode>(
                                         desc.Content,
-                                        Jsons.Options
+                                        CezanneJsonContext.Default.JsonNode
                                     ),
                                 _ => Jsons.FromYaml(desc.Content)
                             };
                             content = JsonSerializer.Serialize(
-                                jsonPatch.Apply(json),
-                                Jsons.Options
+                                jsonPatch.Apply(json).Result!,
+                                CezanneJsonContext.Default.JsonNode
                             );
                         }
                         catch (Exception e)
@@ -374,9 +380,16 @@ namespace Cézanne.Core.Service
                             content = substitutor.Replace(from, desc, content, id);
                             alreadyInterpolated = true;
                             content = JsonSerializer.Serialize(
-                                jsonPatch.Apply(
-                                    JsonSerializer.Deserialize<JsonNode>(content, Jsons.Options)
-                                )
+                                jsonPatch
+                                    .Apply(
+                                        JsonSerializer.Deserialize(
+                                            content,
+                                            CezanneJsonContext.Default.JsonNode
+                                        )
+                                    )
+                                    .Result!,
+                                typeof(JsonNode),
+                                CezanneJsonContext.Default
                             );
                         }
                     }

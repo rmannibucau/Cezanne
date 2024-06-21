@@ -335,7 +335,10 @@ namespace Cézanne.Core.K8s
                 var json = extension switch
                 {
                     "json"
-                        => JsonSerializer.Deserialize<JsonNode>(descriptorContent, Jsons.Options),
+                        => JsonSerializer.Deserialize(
+                            descriptorContent,
+                            CezanneJsonContext.Default.JsonNode
+                        ),
                     _ => Jsons.FromYaml(descriptorContent)
                 };
                 switch (json?.GetValueKind())
@@ -649,7 +652,7 @@ namespace Cézanne.Core.K8s
             using FileStream stream = new(path, FileMode.Open, FileAccess.Read);
             if (path.EndsWith(".json"))
             {
-                return JsonSerializer.Deserialize<KubeConfig>(stream, new JsonSerializerOptions())
+                return JsonSerializer.Deserialize(stream, CezanneJsonContext.Default.KubeConfig)
                     ?? new KubeConfig();
             }
 

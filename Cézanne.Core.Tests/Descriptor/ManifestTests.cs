@@ -10,7 +10,7 @@ namespace Cézanne.Core.Tests.Descriptor
         [TestCaseSource(nameof(FromJsonDataSet))]
         public Manifest? FromJson(string json)
         {
-            return JsonSerializer.Deserialize<Manifest>(json, Jsons.Options);
+            return JsonSerializer.Deserialize(json, CezanneJsonContext.Default.Manifest);
         }
 
         private static IEnumerable<TestCaseData> FromJsonDataSet()

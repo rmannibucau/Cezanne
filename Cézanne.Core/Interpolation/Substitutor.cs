@@ -13,6 +13,7 @@ using Cézanne.Core.Descriptor;
 using Cézanne.Core.K8s;
 using Cézanne.Core.Maven;
 using Cézanne.Core.Runtime;
+using Cézanne.Core.Service;
 using HandlebarsDotNet;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -399,7 +400,8 @@ namespace Cézanne.Core.Interpolation
                 );
                 return JsonSerializer.Serialize(
                     data,
-                    new JsonSerializerOptions() /* cache meta per execution since it is volatile data - for now */
+                    typeof(IDictionary<string, string>),
+                    CezanneJsonContext.Default
                 );
             }
 
@@ -695,8 +697,6 @@ namespace Cézanne.Core.Interpolation
         )
         {
             var iterations = 0;
-            JsonSerializerOptions jsonOptions =
-                new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
             var end = DateTime.Now.AddSeconds(timeout);
             do
@@ -721,9 +721,9 @@ namespace Cézanne.Core.Interpolation
                     ?.Content.ReadAsStringAsync()
                     .GetAwaiter()
                     .GetResult();
-                var serviceAccount = JsonSerializer.Deserialize<JsonObject>(
+                var serviceAccount = JsonSerializer.Deserialize(
                     serviceAccountJson ?? "{}",
-                    jsonOptions
+                    CezanneJsonContext.Default.JsonObject
                 );
                 var secrets = serviceAccount?["secrets"];
                 if (secrets is IEnumerable<JsonObject> objs)
@@ -745,10 +745,10 @@ namespace Cézanne.Core.Interpolation
                         continue;
                     }
 
-                    var secretObj = JsonSerializer.Deserialize<JsonObject>(
+                    var secretObj = JsonSerializer.Deserialize(
                         secretResponse?.Content.ReadAsStringAsync().GetAwaiter().GetResult()
                             ?? "{}",
-                        jsonOptions
+                        CezanneJsonContext.Default.JsonObject
                     );
                     if (secretObj?.ContainsKey("data") is false)
                     {

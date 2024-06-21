@@ -16,7 +16,7 @@ namespace Cézanne.Core.Service
             using StreamReader reader = new(manifest());
             var content = _substitutor.Replace(null, null, reader.ReadToEnd().Trim(), id);
             var mf =
-                JsonSerializer.Deserialize<Manifest>(content, Jsons.Options)
+                JsonSerializer.Deserialize(content, CezanneJsonContext.Default.Manifest)
                 ?? throw new ArgumentException(
                     $"Invalid manifest descriptor: {content}",
                     nameof(location)

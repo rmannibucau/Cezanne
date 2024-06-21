@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Cézanne.Core.Service;
 
 namespace Cézanne.Core.Descriptor
 {
@@ -84,7 +85,18 @@ namespace Cézanne.Core.Descriptor
                 WriteIndented = true,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
                 Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
+                TypeInfoResolver = CezanneJsonContext.Default,
+                Converters =
+                {
+                    new JsonStringEnumConverter<AwaitConditionType>(
+                        JsonNamingPolicy.SnakeCaseUpper
+                    ),
+                    new JsonStringEnumConverter<ConditionOperator>(JsonNamingPolicy.SnakeCaseUpper),
+                    new JsonStringEnumConverter<ConditionType>(JsonNamingPolicy.SnakeCaseUpper),
+                    new JsonStringEnumConverter<JsonPointerOperator>(
+                        JsonNamingPolicy.SnakeCaseUpper
+                    )
+                }
             };
 
         [Description("Ignored linting rule names when using `lint` command.")]
@@ -163,7 +175,7 @@ namespace Cézanne.Core.Descriptor
 
         public override string ToString()
         {
-            return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+            return JsonSerializer.Serialize(this, typeof(Manifest), CezanneJsonContext.Default);
         }
 
         public class Patch
@@ -242,7 +254,7 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(this, typeof(Patch), CezanneJsonContext.Default);
             }
         }
 
@@ -383,7 +395,7 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(this, typeof(Recipe), CezanneJsonContext.Default);
             }
         }
 
@@ -508,7 +520,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(AwaitCondition),
+                    CezanneJsonContext.Default
+                );
             }
         }
 
@@ -621,7 +637,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(Descriptor),
+                    CezanneJsonContext.Default
+                );
             }
         }
 
@@ -668,7 +688,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(Conditions),
+                    CezanneJsonContext.Default
+                );
             }
         }
 
@@ -725,7 +749,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(Condition),
+                    CezanneJsonContext.Default
+                );
             }
         }
 
@@ -780,7 +808,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(Dependency),
+                    CezanneJsonContext.Default
+                );
             }
         }
 
@@ -826,7 +858,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(DescriptorRef),
+                    CezanneJsonContext.Default
+                );
             }
         }
 
@@ -899,7 +935,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(Requirement),
+                    CezanneJsonContext.Default
+                );
             }
         }
 
@@ -944,7 +984,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(ManifestReference),
+                    CezanneJsonContext.Default
+                );
             }
         }
 
@@ -985,7 +1029,11 @@ namespace Cézanne.Core.Descriptor
 
             public override string ToString()
             {
-                return JsonSerializer.Serialize(this, DefaultToStringJsonOptions);
+                return JsonSerializer.Serialize(
+                    this,
+                    typeof(IgnoredLintingRule),
+                    CezanneJsonContext.Default
+                );
             }
         }
     }

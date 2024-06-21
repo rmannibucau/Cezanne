@@ -64,9 +64,9 @@ namespace Cézanne.Core.Service
                 switch (response.StatusCode)
                 {
                     case HttpStatusCode.OK:
-                        var list = JsonSerializer.Deserialize<APIResourceList>(
+                        var list = JsonSerializer.Deserialize(
                             await response.Content.ReadAsStringAsync(),
-                            _jsonOptions
+                            CezanneJsonContext.Default.APIResourceList
                         );
                         if (list is not null)
                         {

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Cézanne.Core.Descriptor;
 using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
@@ -191,7 +192,10 @@ namespace Cézanne.Core.Cli.Command
                         patchDescriptorNode.AddNode(
                             new Panel(
                                 new JsonText(
-                                    JsonSerializer.Serialize(patch.PatchValue, Jsons.Options)
+                                    JsonSerializer.Serialize(
+                                        patch.PatchValue!,
+                                        CezanneJsonContext.Default.JsonArray
+                                    )
                                 )
                             )
                                 .Header("JSON-Patch")
