@@ -7,7 +7,6 @@ namespace Cézanne.Core.Runtime
         string Content,
         string Extension,
         string Uri,
-        string Resource)
-    {
-    }
+        string Resource
+    ) { }
 }

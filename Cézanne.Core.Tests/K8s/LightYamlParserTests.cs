@@ -8,29 +8,33 @@ namespace Cézanne.Core.Tests.K8s
         public void Parse()
         {
             object? result;
-            using (StringReader reader = new(
-                       """
-                       apiVersion: v1
-                       clusters:
-                       - cluster:
-                           certificate-authority-data: aaaaaaaaaaaa
-                           server: https://1.2.3.4:8443
-                         name: k0s
-                       contexts:
-                       - context:
-                           cluster: k0s
-                           namespace: dev
-                           user: user
-                         name: k0s
-                       current-context: "k0s"
-                       kind: Config
-                       preferences: {}
-                       users:
-                       - name: user
-                         user:
-                           client-certificate-data: bbbbbbb
-                           client-key-data: ccccccccccc
-                       """))
+            using (
+                StringReader reader =
+                    new(
+                        """
+                        apiVersion: v1
+                        clusters:
+                        - cluster:
+                            certificate-authority-data: aaaaaaaaaaaa
+                            server: https://1.2.3.4:8443
+                          name: k0s
+                        contexts:
+                        - context:
+                            cluster: k0s
+                            namespace: dev
+                            user: user
+                          name: k0s
+                        current-context: "k0s"
+                        kind: Config
+                        preferences: {}
+                        users:
+                        - name: user
+                          user:
+                            client-certificate-data: bbbbbbb
+                            client-key-data: ccccccccccc
+                        """
+                    )
+            )
             {
                 result = new LightYamlParser().Parse(reader);
             }
@@ -66,7 +70,9 @@ namespace Cézanne.Core.Tests.K8s
                                 "context",
                                 new Dictionary<string, object>
                                 {
-                                    { "cluster", "k0s" }, { "namespace", "dev" }, { "user", "user" }
+                                    { "cluster", "k0s" },
+                                    { "namespace", "dev" },
+                                    { "user", "user" }
                                 }
                             },
                             { "name", "k0s" }

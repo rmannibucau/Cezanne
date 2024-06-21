@@ -6,24 +6,42 @@ namespace Cézanne.Doc.JsonSchema
     {
         public enum JsonSchemaType
         {
-            [JsonPropertyName("object")] Object,
-            [JsonPropertyName("array")] Array,
-            [JsonPropertyName("string")] String,
-            [JsonPropertyName("number")] Number,
-            [JsonPropertyName("integer")] Integer,
-            [JsonPropertyName("boolean")] Boolean,
-            [JsonPropertyName("null")] Null
+            [JsonPropertyName("object")]
+            Object,
+
+            [JsonPropertyName("array")]
+            Array,
+
+            [JsonPropertyName("string")]
+            String,
+
+            [JsonPropertyName("number")]
+            Number,
+
+            [JsonPropertyName("integer")]
+            Integer,
+
+            [JsonPropertyName("boolean")]
+            Boolean,
+
+            [JsonPropertyName("null")]
+            Null
         }
 
-        [JsonPropertyName("$schema")] public string? Schema { get; set; }
+        [JsonPropertyName("$schema")]
+        public string? Schema { get; set; }
 
         public string? Title { get; set; }
         public string? Description { get; set; }
 
-        [JsonPropertyName("$id")] public string? Id { get; set; }
+        [JsonPropertyName("$id")]
+        public string? Id { get; set; }
 
-        [JsonPropertyName("$ref")] public string? Ref { get; set; }
-        [JsonPropertyName("$defs")] public IEnumerable<JsonSchema>? Defs { get; set; }
+        [JsonPropertyName("$ref")]
+        public string? Ref { get; set; }
+
+        [JsonPropertyName("$defs")]
+        public IEnumerable<JsonSchema>? Defs { get; set; }
 
         public object? Type { get; set; }
 

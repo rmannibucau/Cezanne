@@ -7,10 +7,13 @@ namespace Cézanne.Core.K8s
         public IEnumerable<NamedContext>? Contexts { get; set; }
         public IEnumerable<NamedCluster>? Clusters { get; set; }
         public IEnumerable<NamedUser>? Users { get; set; }
-        [JsonPropertyName("current-context")] public string? CurrentContext { get; set; }
-        public string? Namespace { get; set; }
-        [JsonPropertyName("skip-tls-verify")] public bool? SkipTlsVerify { get; set; }
 
+        [JsonPropertyName("current-context")]
+        public string? CurrentContext { get; set; }
+        public string? Namespace { get; set; }
+
+        [JsonPropertyName("skip-tls-verify")]
+        public bool? SkipTlsVerify { get; set; }
 
         public class Cluster
         {
@@ -44,12 +47,14 @@ namespace Cézanne.Core.K8s
             [JsonPropertyName("client-certificate")]
             public string? ClientCertificate { get; set; }
 
-            [JsonPropertyName("client-key")] public string? ClientKey { get; set; }
+            [JsonPropertyName("client-key")]
+            public string? ClientKey { get; set; }
 
             [JsonPropertyName("client-certificate-data")]
             public string? ClientCertificateData { get; set; }
 
-            [JsonPropertyName("client-key-data")] public string? ClientKeyData { get; set; }
+            [JsonPropertyName("client-key-data")]
+            public string? ClientKeyData { get; set; }
             public string? Token { get; set; }
             public string? TokenFile { get; set; }
             public string? Username { get; set; }
@@ -62,7 +67,6 @@ namespace Cézanne.Core.K8s
             public string? User { get; set; }
             public string? Namespace { get; set; }
         }
-
 
         public class NamedContext
         {

@@ -1,5 +1,5 @@
-﻿using Cézanne.Core.Cli;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using Cézanne.Core.Cli;
 
 namespace Cézanne.Runner
 {

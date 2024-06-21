@@ -13,30 +13,40 @@ namespace Cézanne.Doc.JsonSchema
     {
         private readonly NullabilityInfoContext _nullabilityInfoContext = new();
 
-        public JsonSerializerOptions JsonOptions => new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // UTF-8
-            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
-        };
+        public JsonSerializerOptions JsonOptions =>
+            new()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // UTF-8
+                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
+            };
 
         public JsonSchema For(Type type, Func<Type, PropertyInfo, bool> isIgnored)
         {
             var schema = _GenerateJsonSchema(type, false, isIgnored);
             schema.Schema = "https://json-schema.org/draft/2020-12/schema";
             schema.Title = type.Name;
-            schema.Description = type.GetCustomAttribute<DescriptionAttribute>()?.Description ?? type.Name;
+            schema.Description =
+                type.GetCustomAttribute<DescriptionAttribute>()?.Description ?? type.Name;
             return schema;
         }
 
-        private JsonSchema _GenerateJsonSchema(Type type, bool rootIsNullable, Func<Type, PropertyInfo, bool> isIgnored)
+        private JsonSchema _GenerateJsonSchema(
+            Type type,
+            bool rootIsNullable,
+            Func<Type, PropertyInfo, bool> isIgnored
+        )
         {
             JsonSchema schema = new();
             if (rootIsNullable)
             {
-                schema.MultipleTypes = [JsonSchema.JsonSchemaType.Object, JsonSchema.JsonSchemaType.Null];
+                schema.MultipleTypes =
+                [
+                    JsonSchema.JsonSchemaType.Object,
+                    JsonSchema.JsonSchemaType.Null
+                ];
             }
             else
             {
@@ -57,8 +67,11 @@ namespace Cézanne.Doc.JsonSchema
                 var nullabilityInfo = _nullabilityInfoContext.Create(property);
                 var nullable = nullabilityInfo.ReadState is NullabilityState.Nullable;
 
-                var jsonPropertyName = property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
-                var propertyName = jsonPropertyName ?? JsonNamingPolicy.CamelCase.ConvertName(property.Name);
+                var jsonPropertyName = property
+                    .GetCustomAttribute<JsonPropertyNameAttribute>()
+                    ?.Name;
+                var propertyName =
+                    jsonPropertyName ?? JsonNamingPolicy.CamelCase.ConvertName(property.Name);
 
                 if (nullable)
                 {
@@ -92,18 +105,25 @@ namespace Cézanne.Doc.JsonSchema
                     _SetSchemaType(nullable, propertySchema, JsonSchema.JsonSchemaType.Array);
                     propertySchema.Items = new JsonSchema
                     {
-                        MultipleTypes = [JsonSchema.JsonSchemaType.Object, JsonSchema.JsonSchemaType.Null]
+                        MultipleTypes =
+                        [
+                            JsonSchema.JsonSchemaType.Object,
+                            JsonSchema.JsonSchemaType.Null
+                        ]
                     };
                 }
                 else if (propertyType.IsEnum)
                 {
                     propertySchema = new JsonSchema
                     {
-                        Enum = _EnumValues(propertyType), Description = _EnumDescription(propertyType)
+                        Enum = _EnumValues(propertyType),
+                        Description = _EnumDescription(propertyType)
                     };
                     _SetSchemaType(nullable, propertySchema, JsonSchema.JsonSchemaType.String);
                 }
-                else if (propertyType.IsGenericType && typeof(IEnumerable).IsAssignableFrom(propertyType))
+                else if (
+                    propertyType.IsGenericType && typeof(IEnumerable).IsAssignableFrom(propertyType)
+                )
                 {
                     var nestedType = propertyType.GetGenericArguments()[0];
                     var nestedIsNullable = Nullable.GetUnderlyingType(propertyType) != null;
@@ -118,24 +138,41 @@ namespace Cézanne.Doc.JsonSchema
                     if (nestedType == typeof(string))
                     {
                         propertySchema.Items = new JsonSchema();
-                        _SetSchemaType(nestedIsNullable, propertySchema.Items, JsonSchema.JsonSchemaType.String);
+                        _SetSchemaType(
+                            nestedIsNullable,
+                            propertySchema.Items,
+                            JsonSchema.JsonSchemaType.String
+                        );
                     }
                     else if (nestedType == typeof(bool))
                     {
                         propertySchema.Items = new JsonSchema();
-                        _SetSchemaType(nestedIsNullable, propertySchema.Items, JsonSchema.JsonSchemaType.Boolean);
+                        _SetSchemaType(
+                            nestedIsNullable,
+                            propertySchema.Items,
+                            JsonSchema.JsonSchemaType.Boolean
+                        );
                     }
                     else if (nestedType.IsEnum)
                     {
                         propertySchema.Items = new JsonSchema
                         {
-                            Description = _EnumDescription(propertyType), Enum = _EnumValues(propertyType)
+                            Description = _EnumDescription(propertyType),
+                            Enum = _EnumValues(propertyType)
                         };
-                        _SetSchemaType(nestedIsNullable, propertySchema.Items, JsonSchema.JsonSchemaType.String);
+                        _SetSchemaType(
+                            nestedIsNullable,
+                            propertySchema.Items,
+                            JsonSchema.JsonSchemaType.String
+                        );
                     }
                     else
                     {
-                        propertySchema.Items = _GenerateJsonSchema(nestedType, nestedIsNullable, isIgnored);
+                        propertySchema.Items = _GenerateJsonSchema(
+                            nestedType,
+                            nestedIsNullable,
+                            isIgnored
+                        );
                     }
                 }
                 else
@@ -146,8 +183,9 @@ namespace Cézanne.Doc.JsonSchema
                 schema.Properties[propertyName] = propertySchema;
 
                 schema.Title = _ToTitle(propertyName);
-                schema.Description = property.GetCustomAttribute<DescriptionAttribute>()?.Description ??
-                                     schema.Description;
+                schema.Description =
+                    property.GetCustomAttribute<DescriptionAttribute>()?.Description
+                    ?? schema.Description;
             }
 
             return schema;
@@ -166,18 +204,25 @@ namespace Cézanne.Doc.JsonSchema
         private string? _EnumDescription(Type propertyType)
         {
             var prefix = propertyType.GetCustomAttribute<DescriptionAttribute>()?.Description;
-            var values = string.Join(", ", _GetEnumPropreties(propertyType)
-                    .Select(it =>
-                    {
-                        var description = it.GetCustomAttribute<DescriptionAttribute>()?.Description;
-                        description = description is not null && description.EndsWith('.')
-                            ? description[..^1]
-                            : description;
-                        return description is null ? null : $"{_EnumName(it)} - {description}";
-                    })
-                    .Where(it => !string.IsNullOrWhiteSpace(it)))
+            var values = string.Join(
+                    ", ",
+                    _GetEnumPropreties(propertyType)
+                        .Select(it =>
+                        {
+                            var description =
+                                it.GetCustomAttribute<DescriptionAttribute>()?.Description;
+                            description =
+                                description is not null && description.EndsWith('.')
+                                    ? description[..^1]
+                                    : description;
+                            return description is null ? null : $"{_EnumName(it)} - {description}";
+                        })
+                        .Where(it => !string.IsNullOrWhiteSpace(it))
+                )
                 .Trim();
-            return (prefix ?? "" + (values is not null ? $" Potential values: {values}." : "")).Trim();
+            return (
+                prefix ?? "" + (values is not null ? $" Potential values: {values}." : "")
+            ).Trim();
         }
 
         private IEnumerable<MemberInfo> _GetEnumPropreties(Type propertyType)
@@ -204,7 +249,11 @@ namespace Cézanne.Doc.JsonSchema
             return result.ToString();
         }
 
-        private void _SetSchemaType(bool nullable, JsonSchema propertySchema, JsonSchema.JsonSchemaType type)
+        private void _SetSchemaType(
+            bool nullable,
+            JsonSchema propertySchema,
+            JsonSchema.JsonSchemaType type
+        )
         {
             if (nullable)
             {

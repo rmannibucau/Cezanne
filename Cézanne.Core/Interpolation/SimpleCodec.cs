@@ -71,7 +71,9 @@ namespace Cézanne.Core.Interpolation
             cipher.IV = keyAndIv[16..];
 
             using var decryptor = cipher.CreateDecryptor(cipher.Key, cipher.IV);
-            return Encoding.UTF8.GetString(decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length));
+            return Encoding.UTF8.GetString(
+                decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length)
+            );
         }
 
         [GeneratedRegex(".*?[^\\\\]?\\{(?<value>.*?[^\\\\])\\}.*", RegexOptions.Singleline)]

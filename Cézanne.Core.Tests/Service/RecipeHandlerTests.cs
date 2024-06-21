@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using Cézanne.Core.Descriptor;
 using Cézanne.Core.Interpolation;
 using Cézanne.Core.Maven;
@@ -5,8 +7,6 @@ using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
 using Cézanne.Core.Tests.Rule;
 using Microsoft.Extensions.Logging;
-using System.IO.Compression;
-using System.Text;
 
 namespace Cézanne.Core.Tests.Service
 {
@@ -27,15 +27,22 @@ namespace Cézanne.Core.Tests.Service
             var zipLocation = _CreateZip(maven);
 
             // visit the recipe
-            var recipes =
-                await recipeHandler.FindRootRecipes(zipLocation, null, "test", "test", null);
+            var recipes = await recipeHandler.FindRootRecipes(
+                zipLocation,
+                null,
+                "test",
+                "test",
+                null
+            );
             Assert.That(recipes.Count(), Is.EqualTo(1));
 
             List<LoadedDescriptor> visited = new();
             foreach (var recipe in recipes)
             {
                 await recipeHandler.ExecuteOnRecipe(
-                    "Visiting ", recipe.Manifest, recipe.Recipe,
+                    "Visiting ",
+                    recipe.Manifest,
+                    recipe.Recipe,
                     null,
                     (ctx, desc) =>
                     {
@@ -48,7 +55,9 @@ namespace Cézanne.Core.Tests.Service
                     },
                     archiveReader.NewCache(),
                     desc => Task.CompletedTask,
-                    "test", null);
+                    "test",
+                    null
+                );
             }
 
             Assert.That(visited, Has.Count.EqualTo(1));
@@ -61,14 +70,19 @@ namespace Cézanne.Core.Tests.Service
             var exclusions =
                 new RecipeHandler.RecipeContext(new Manifest(), new Manifest.Recipe())
                     .Exclude("foo", "bar,dummy")
-                    .Recipe
-                    .ExcludedDescriptors ?? [];
-            Assert.That(exclusions, Is.EqualTo((IEnumerable<Manifest.DescriptorRef>)
-            [
-                new Manifest.DescriptorRef { Name = "bar", Location = "*" },
-                new Manifest.DescriptorRef { Name = "dummy", Location = "*" },
-                new Manifest.DescriptorRef { Name = "*", Location = "foo" }
-            ]));
+                    .Recipe.ExcludedDescriptors ?? [];
+            Assert.That(
+                exclusions,
+                Is.EqualTo(
+                    (IEnumerable<Manifest.DescriptorRef>)
+
+                        [
+                            new Manifest.DescriptorRef { Name = "bar", Location = "*" },
+                            new Manifest.DescriptorRef { Name = "dummy", Location = "*" },
+                            new Manifest.DescriptorRef { Name = "*", Location = "foo" }
+                        ]
+                )
+            );
         }
 
         [Test]
@@ -79,8 +93,13 @@ namespace Cézanne.Core.Tests.Service
             var zipLocation = _CreateZip(maven);
             using (maven)
             {
-                var ctx =
-                    await recipeHandler.FindRootRecipes("com.cezanne.test:recipe:1.0.0", null, "auto", "test", null);
+                var ctx = await recipeHandler.FindRootRecipes(
+                    "com.cezanne.test:recipe:1.0.0",
+                    null,
+                    "auto",
+                    "test",
+                    null
+                );
                 Assert.Multiple(() =>
                 {
                     Assert.That(ctx.Count(), Is.EqualTo(1));
@@ -98,14 +117,27 @@ namespace Cézanne.Core.Tests.Service
             using var mvn = maven;
 
             // twice to ensure the cache - nested, not global there - does not break anything in case of a later refactoring
-            var mf1 = await recipeHandler.FindManifest("com.cezanne.test:recipe:1.0.0", null, "test", null);
-            var mf2 = await recipeHandler.FindManifest("com.cezanne.test:recipe:1.0.0", null, "test", null);
+            var mf1 = await recipeHandler.FindManifest(
+                "com.cezanne.test:recipe:1.0.0",
+                null,
+                "test",
+                null
+            );
+            var mf2 = await recipeHandler.FindManifest(
+                "com.cezanne.test:recipe:1.0.0",
+                null,
+                "test",
+                null
+            );
             Action<Manifest?> asserts = mf =>
             {
                 Assert.Multiple(() =>
                 {
                     Assert.That(mf, Is.Not.Null);
-                    Assert.That((mf ?? throw new ArgumentNullException(nameof(mf))).Recipes.Count, Is.EqualTo(1));
+                    Assert.That(
+                        (mf ?? throw new ArgumentNullException(nameof(mf))).Recipes.Count,
+                        Is.EqualTo(1)
+                    );
                 });
             };
             Assert.Multiple(() =>
@@ -120,38 +152,61 @@ namespace Cézanne.Core.Tests.Service
             LoggerFactory loggerFactory = new();
             Substitutor substitutor = new(static _ => null, null, null);
             ManifestReader manifestReader = new(substitutor);
-            MavenService maven = new(
-                new MavenConfiguration
-                {
-                    ForceCustomSettingsXml = true,
-                    PreferLocalSettingsXml = true,
-                    EnableDownload = false,
-                    LocalRepository = Temp ?? throw new ArgumentException("Temp is null", nameof(Temp))
-                }, new Logger<MavenService>(loggerFactory));
-            ArchiveReader archiveReader = new(new Logger<ArchiveReader>(loggerFactory), manifestReader, maven);
-            RecipeHandler recipeHandler = new(new Logger<RecipeHandler>(loggerFactory), manifestReader,
-                archiveReader, new RequirementService(), new ConditionEvaluator(), substitutor);
+            MavenService maven =
+                new(
+                    new MavenConfiguration
+                    {
+                        ForceCustomSettingsXml = true,
+                        PreferLocalSettingsXml = true,
+                        EnableDownload = false,
+                        LocalRepository =
+                            Temp ?? throw new ArgumentException("Temp is null", nameof(Temp))
+                    },
+                    new Logger<MavenService>(loggerFactory)
+                );
+            ArchiveReader archiveReader =
+                new(new Logger<ArchiveReader>(loggerFactory), manifestReader, maven);
+            RecipeHandler recipeHandler =
+                new(
+                    new Logger<RecipeHandler>(loggerFactory),
+                    manifestReader,
+                    archiveReader,
+                    new RequirementService(),
+                    new ConditionEvaluator(),
+                    substitutor
+                );
             return (maven, recipeHandler, archiveReader);
         }
 
         private string _CreateZip(MavenService maven)
         {
-            var zipLocation = Path.Combine(maven.LocalRepository, "com/cezanne/test/recipe/1.0.0/recipe-1.0.0.jar");
-            (Directory.GetParent(zipLocation) ?? throw new ArgumentException("no parent", nameof(zipLocation)))
-                .Create();
+            var zipLocation = Path.Combine(
+                maven.LocalRepository,
+                "com/cezanne/test/recipe/1.0.0/recipe-1.0.0.jar"
+            );
+            (
+                Directory.GetParent(zipLocation)
+                ?? throw new ArgumentException("no parent", nameof(zipLocation))
+            ).Create();
             using (var zip = ZipFile.Open(zipLocation, ZipArchiveMode.Create))
             {
                 zip.CreateEntry("bundlebee/").Open().Close();
 
                 using (var manifestJson = zip.CreateEntry("bundlebee/manifest.json").Open())
                 {
-                    manifestJson.Write(Encoding.UTF8.GetBytes(
-                        "{\"alveoli\":[{\"name\": \"test\",\"descriptors\":[{\"name\":\"desc.json\"}]}]}"));
+                    manifestJson.Write(
+                        Encoding.UTF8.GetBytes(
+                            "{\"alveoli\":[{\"name\": \"test\",\"descriptors\":[{\"name\":\"desc.json\"}]}]}"
+                        )
+                    );
                 }
 
                 using var descJson = zip.CreateEntry("bundlebee/kubernetes/desc.json").Open();
-                descJson.Write(Encoding.UTF8.GetBytes(
-                    "{\"apiVersion\":\"v1\",\"kind\":\"ConfigMap\",\"metadata\":{\"name\":\"cm\"}\"data\":{}}"));
+                descJson.Write(
+                    Encoding.UTF8.GetBytes(
+                        "{\"apiVersion\":\"v1\",\"kind\":\"ConfigMap\",\"metadata\":{\"name\":\"cm\"}\"data\":{}}"
+                    )
+                );
             }
 
             return zipLocation;

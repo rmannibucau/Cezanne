@@ -1,5 +1,5 @@
-using Cézanne.Core.Lang;
 using System.ComponentModel;
+using Cézanne.Core.Lang;
 
 namespace Cézanne.Core.K8s
 {
@@ -18,7 +18,8 @@ namespace Cézanne.Core.K8s
         public string Token { get; set; } = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 
         [Description("Kubernetes HTTP client certificates.")]
-        public string Certificates { get; set; } = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
+        public string Certificates { get; set; } =
+            "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
 
         [Description("Kubernetes HTTP client private key (for mTLS when token is not set).")]
         public string? PrivateKey { get; set; }
@@ -33,7 +34,8 @@ namespace Cézanne.Core.K8s
         public string? Kubeconfig { get; set; }
 
         [Description(
-            "JSON-Pointers of dropped JSON nodes from the descriptors (enables to inject documentation for example or schema for completion).")]
+            "JSON-Pointers of dropped JSON nodes from the descriptors (enables to inject documentation for example or schema for completion)."
+        )]
         public IEnumerable<string>? ImplicitlyDroppedAttributes { get; set; } =
             ["/$schema", "/$bundlebeeIgnoredLintingRules"];
 

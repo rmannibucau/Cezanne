@@ -1,3 +1,6 @@
+using System.Collections.Immutable;
+using System.ComponentModel;
+using System.Text.Json;
 using Cézanne.Core.Descriptor;
 using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
@@ -5,29 +8,40 @@ using Microsoft.Extensions.Logging;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using Spectre.Console.Json;
-using System.Collections.Immutable;
-using System.ComponentModel;
-using System.Text.Json;
 
 namespace Cézanne.Core.Cli.Command
 {
     public class InspectCommand(
         ILogger<InspectCommand> logger,
         ArchiveReader archiveReader,
-        RecipeHandler recipeHandler)
-        : CollectingCommand<InspectCommand, InspectCommand.Settings>
-            (logger, archiveReader, recipeHandler, "Inspecting", "inspected")
+        RecipeHandler recipeHandler
+    )
+        : CollectingCommand<InspectCommand, InspectCommand.Settings>(
+            logger,
+            archiveReader,
+            recipeHandler,
+            "Inspecting",
+            "inspected"
+        )
     {
-        protected override int AfterCollection(string id, Settings settings,
-            (IDictionary<string, Manifest.Recipe> recipes, IDictionary<string, IList<LoadedDescriptor>> descriptors)
-                collected)
+        protected override int AfterCollection(
+            string id,
+            Settings settings,
+            (
+                IDictionary<string, Manifest.Recipe> recipes,
+                IDictionary<string, IList<LoadedDescriptor>> descriptors
+            ) collected
+        )
         {
             AnsiConsole.Write(_BuildTree(collected.recipes, collected.descriptors, settings));
             return 0;
         }
 
-        private Tree _BuildTree(IDictionary<string, Manifest.Recipe> recipes,
-            IDictionary<string, IList<LoadedDescriptor>> descriptors, Settings settings)
+        private Tree _BuildTree(
+            IDictionary<string, Manifest.Recipe> recipes,
+            IDictionary<string, IList<LoadedDescriptor>> descriptors,
+            Settings settings
+        )
         {
             var root = new Tree("Inspection Result");
             foreach (var recipe in recipes)
@@ -67,7 +81,9 @@ namespace Cézanne.Core.Cli.Command
                         var awaitRootNode = descriptorNode.AddNode("Await conditions");
                         foreach (var conditions in descriptor.AwaitConditions)
                         {
-                            var awaitNode = awaitRootNode.AddNode($"Conditions Operator: {conditions.OperatorType}");
+                            var awaitNode = awaitRootNode.AddNode(
+                                $"Conditions Operator: {conditions.OperatorType}"
+                            );
                             if (conditions.Command is not null)
                             {
                                 awaitNode.AddNode($"For command: {conditions.Command}");
@@ -78,25 +94,32 @@ namespace Cézanne.Core.Cli.Command
                                 var typeDescription = condition.TypeValue switch
                                 {
                                     Manifest.AwaitConditionType.JsonPointer => "JSON-Pointer",
-                                    Manifest.AwaitConditionType.StatusCondition => "Status condition",
+                                    Manifest.AwaitConditionType.StatusCondition
+                                        => "Status condition",
                                     _ => "?"
                                 };
-                                var comparatorDescription =
-                                    (condition.OperatorType ?? Manifest.JsonPointerOperator.EqualsValue) switch
-                                    {
-                                        Manifest.JsonPointerOperator.Exists => "exists",
-                                        Manifest.JsonPointerOperator.Missing => "is missing",
-                                        Manifest.JsonPointerOperator.EqualsValue => $"is equal to {condition.Value}",
-                                        Manifest.JsonPointerOperator.NotEquals => $"is not equal to {condition.Value}",
-                                        Manifest.JsonPointerOperator.EqualsIgnoreCase =>
-                                            $"is equal ignoring case to {condition.Value}",
-                                        Manifest.JsonPointerOperator.NotEqualsIgnoreCase =>
-                                            $"is not equal ignoring case to {condition.Value}",
-                                        Manifest.JsonPointerOperator.Contains => $"contains {condition.Value}",
-                                        _ => "?"
-                                    };
+                                var comparatorDescription = (
+                                    condition.OperatorType
+                                    ?? Manifest.JsonPointerOperator.EqualsValue
+                                ) switch
+                                {
+                                    Manifest.JsonPointerOperator.Exists => "exists",
+                                    Manifest.JsonPointerOperator.Missing => "is missing",
+                                    Manifest.JsonPointerOperator.EqualsValue
+                                        => $"is equal to {condition.Value}",
+                                    Manifest.JsonPointerOperator.NotEquals
+                                        => $"is not equal to {condition.Value}",
+                                    Manifest.JsonPointerOperator.EqualsIgnoreCase
+                                        => $"is equal ignoring case to {condition.Value}",
+                                    Manifest.JsonPointerOperator.NotEqualsIgnoreCase
+                                        => $"is not equal ignoring case to {condition.Value}",
+                                    Manifest.JsonPointerOperator.Contains
+                                        => $"contains {condition.Value}",
+                                    _ => "?"
+                                };
                                 awaitNode.AddNode(
-                                    $"{typeDescription} [bold]{condition.Pointer}[/] {comparatorDescription}");
+                                    $"{typeDescription} [bold]{condition.Pointer}[/] {comparatorDescription}"
+                                );
                             }
                         }
                     }
@@ -105,10 +128,12 @@ namespace Cézanne.Core.Cli.Command
                     {
                         if (existing is not null)
                         {
-                            descriptorNode.AddNode(new Panel(new JsonText(existing.Content))
-                                .Header("Content")
-                                .Collapse()
-                                .RoundedBorder());
+                            descriptorNode.AddNode(
+                                new Panel(new JsonText(existing.Content))
+                                    .Header("Content")
+                                    .Collapse()
+                                    .RoundedBorder()
+                            );
                         }
                     }
                 }
@@ -138,7 +163,10 @@ namespace Cézanne.Core.Cli.Command
                         .ShowRowSeparators()
                         .AddColumn("Key")
                         .AddColumn("Value");
-                    foreach (var keyValue in recipe.Value.Placeholders ?? ImmutableDictionary<string, string>.Empty)
+                    foreach (
+                        var keyValue in recipe.Value.Placeholders
+                            ?? ImmutableDictionary<string, string>.Empty
+                    )
                     {
                         table.AddRow($"[bold]{keyValue.Key}[/]", keyValue.Value);
                     }
@@ -151,7 +179,9 @@ namespace Cézanne.Core.Cli.Command
                     var patchNode = recipeNode.AddNode("Patches");
                     foreach (var patch in recipe.Value.Patches!)
                     {
-                        var patchDescriptorNode = patchNode.AddNode($"Descriptor [bold]{patch.DescriptorName}[/]");
+                        var patchDescriptorNode = patchNode.AddNode(
+                            $"Descriptor [bold]{patch.DescriptorName}[/]"
+                        );
                         if (patch.Interpolate ?? false)
                         {
                             patchDescriptorNode.AddNode($"Interpolated: {patch.Interpolate}");
@@ -159,10 +189,15 @@ namespace Cézanne.Core.Cli.Command
 
                         _AddCondition(patchDescriptorNode, patch.IncludeIf);
                         patchDescriptorNode.AddNode(
-                            new Panel(new JsonText(JsonSerializer.Serialize(patch.PatchValue, Jsons.Options)))
+                            new Panel(
+                                new JsonText(
+                                    JsonSerializer.Serialize(patch.PatchValue, Jsons.Options)
+                                )
+                            )
                                 .Header("JSON-Patch")
                                 .Collapse()
-                                .RoundedBorder());
+                                .RoundedBorder()
+                        );
                     }
                 }
             }
@@ -172,7 +207,11 @@ namespace Cézanne.Core.Cli.Command
 
         private void _AddCondition(TreeNode root, Manifest.Conditions? includeIf)
         {
-            if (includeIf is null || includeIf.ConditionsList is null || !includeIf.ConditionsList.Any())
+            if (
+                includeIf is null
+                || includeIf.ConditionsList is null
+                || !includeIf.ConditionsList.Any()
+            )
             {
                 return;
             }
@@ -189,7 +228,8 @@ namespace Cézanne.Core.Cli.Command
                 };
                 var comparison = condition.Negate ?? false ? "has not" : "has";
                 conditionsNode.AddNode(
-                    $"{type} [bold]{condition.Key}[/] {comparison} value [bold]{condition.Value}[/]");
+                    $"{type} [bold]{condition.Key}[/] {comparison} value [bold]{condition.Value}[/]"
+                );
             }
         }
 

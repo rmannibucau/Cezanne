@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Net;
 using System.Text;
 using System.Xml;
+using Microsoft.Extensions.Logging;
 
 namespace Cézanne.Core.Maven
 {
@@ -25,14 +25,18 @@ namespace Cézanne.Core.Maven
             _ParseHeadersConfiguration();
 
             // todo: more configuration, custom pem etc
-            HttpClientHandler messageHandler = new()
+            HttpClientHandler messageHandler =
+                new()
+                {
+                    AllowAutoRedirect = true,
+                    MaxAutomaticRedirections = 5,
+                    AutomaticDecompression = DecompressionMethods.GZip,
+                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+                };
+            _httpClient = new HttpClient(messageHandler)
             {
-                AllowAutoRedirect = true,
-                MaxAutomaticRedirections = 5,
-                AutomaticDecompression = DecompressionMethods.GZip,
-                ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+                Timeout = new TimeSpan(0, 0, configuration.Timeout)
             };
-            _httpClient = new HttpClient(messageHandler) { Timeout = new TimeSpan(0, 0, configuration.Timeout) };
         }
 
         public string LocalRepository { get; }
@@ -116,8 +120,10 @@ namespace Cézanne.Core.Maven
                 throw new ArgumentException($"Invalid artifactId: {raw}", nameof(raw));
             }
 
-            var file = Path.Combine(LocalRepository,
-                _ToRelativePath(null, group, artifact, version, fullClassifier, type, version));
+            var file = Path.Combine(
+                LocalRepository,
+                _ToRelativePath(null, group, artifact, version, fullClassifier, type, version)
+            );
             if (File.Exists(file))
             {
                 _logger.LogTrace("Found {file}, skipping download", file);
@@ -133,31 +139,63 @@ namespace Cézanne.Core.Maven
             else
             {
                 repoBase = version.EndsWith("-SNAPSHOT")
-                    ? _configuration.SnapshotRepository ??
-                      throw new InvalidOperationException("No snapshot repository configured")
+                    ? _configuration.SnapshotRepository
+                        ?? throw new InvalidOperationException("No snapshot repository configured")
                     : _configuration.ReleaseRepository;
             }
 
             var resolvedVersion = await _FindVersion(repoBase, group, artifact, version);
             if (!_configuration.EnableDownload)
             {
-                throw new InvalidOperationException($"Downloads are disabled, cant download: '{raw}'");
+                throw new InvalidOperationException(
+                    $"Downloads are disabled, cant download: '{raw}'"
+                );
             }
 
             return await _Download(
-                group, artifact, resolvedVersion, fullClassifier, type,
-                _ToRelativePath(repoBase, group, artifact, resolvedVersion, fullClassifier, type, version),
-                version, onProgress);
+                group,
+                artifact,
+                resolvedVersion,
+                fullClassifier,
+                type,
+                _ToRelativePath(
+                    repoBase,
+                    group,
+                    artifact,
+                    resolvedVersion,
+                    fullClassifier,
+                    type,
+                    version
+                ),
+                version,
+                onProgress
+            );
         }
 
-        private async Task<string> _Download(string group, string artifact, string resolvedVersion,
+        private async Task<string> _Download(
+            string group,
+            string artifact,
+            string resolvedVersion,
             string? fullClassifier,
-            string type, string url, string version,
-            IProgress<double>? onProgress)
+            string type,
+            string url,
+            string version,
+            IProgress<double>? onProgress
+        )
         {
             _logger.LogInformation("Downloading {url}", url);
-            var local = Path.Combine(LocalRepository,
-                _ToRelativePath(null, group, artifact, resolvedVersion, fullClassifier, type, version));
+            var local = Path.Combine(
+                LocalRepository,
+                _ToRelativePath(
+                    null,
+                    group,
+                    artifact,
+                    resolvedVersion,
+                    fullClassifier,
+                    type,
+                    version
+                )
+            );
             Directory.GetParent(local)?.Create();
 
             using var response = await _GET(new Uri(url));
@@ -203,36 +241,57 @@ namespace Cézanne.Core.Maven
             return local;
         }
 
-        private async Task<string> _FindVersion(string repoBase, string group, string artifact, string version)
+        private async Task<string> _FindVersion(
+            string repoBase,
+            string group,
+            string artifact,
+            string version
+        )
         {
-            var baseUrl = repoBase == null || repoBase.Length == 0
-                ? ""
-                : repoBase + (!repoBase.EndsWith("/") ? "/" : "");
+            var baseUrl =
+                repoBase == null || repoBase.Length == 0
+                    ? ""
+                    : repoBase + (!repoBase.EndsWith("/") ? "/" : "");
             if (("LATEST" == version || "LATEST-SNAPSHOT" == version) && baseUrl.StartsWith("http"))
             {
-                Uri meta = new(baseUrl + group.Replace('.', '/') + "/" + artifact + "/maven-metadata.xml");
+                Uri meta =
+                    new(baseUrl + group.Replace('.', '/') + "/" + artifact + "/maven-metadata.xml");
                 try
                 {
                     var xml = await _LoadMeta(meta);
                     if (version.EndsWith("-SNAPSHOT"))
                     {
-                        return xml.SelectSingleNode("/metadata/versioning/latest")?.InnerText ?? version;
+                        return xml.SelectSingleNode("/metadata/versioning/latest")?.InnerText
+                            ?? version;
                     }
 
-                    return xml.SelectSingleNode("/metadata/versioning/release")?.InnerText ?? version;
+                    return xml.SelectSingleNode("/metadata/versioning/release")?.InnerText
+                        ?? version;
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError("Can't fetch latest version from {baseUrl}, will default to {version}\n{error}",
-                        baseUrl, version, e);
+                    _logger.LogError(
+                        "Can't fetch latest version from {baseUrl}, will default to {version}\n{error}",
+                        baseUrl,
+                        version,
+                        e
+                    );
                     return version;
                 }
             }
 
             if (version.EndsWith("-SNAPSHOT") && baseUrl.StartsWith("http"))
             {
-                Uri meta = new(baseUrl + group.Replace('.', '/') + '/' + artifact + '/' + version +
-                               "/maven-metadata.xml");
+                Uri meta =
+                    new(
+                        baseUrl
+                            + group.Replace('.', '/')
+                            + '/'
+                            + artifact
+                            + '/'
+                            + version
+                            + "/maven-metadata.xml"
+                    );
                 try
                 {
                     var xml = await _LoadMeta(meta);
@@ -243,8 +302,12 @@ namespace Cézanne.Core.Maven
                         var timestamp = snapshot.SelectNodes("./timestamp");
                         if (buildNumber is not null && timestamp is not null)
                         {
-                            return string.Join('-', version[..(version.Length - "-SNAPSHOT".Length)], timestamp,
-                                buildNumber);
+                            return string.Join(
+                                '-',
+                                version[..(version.Length - "-SNAPSHOT".Length)],
+                                timestamp,
+                                buildNumber
+                            );
                         }
                     }
 
@@ -252,8 +315,12 @@ namespace Cézanne.Core.Maven
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError("Can't fetch latest version from {baseUrl}, will default to {version}\n{error}",
-                        baseUrl, version, e);
+                    _logger.LogError(
+                        "Can't fetch latest version from {baseUrl}, will default to {version}\n{error}",
+                        baseUrl,
+                        version,
+                        e
+                    );
                     return version;
                 }
             }
@@ -264,14 +331,16 @@ namespace Cézanne.Core.Maven
         private async Task<HttpResponseMessage> _GET(Uri uri)
         {
             var response = await _httpClient.SendAsync(
-                _SetupHttpHeaders(uri.Host,
-                    new HttpRequestMessage { Method = HttpMethod.Get, RequestUri = uri }),
-                HttpCompletionOption.ResponseHeadersRead);
+                _SetupHttpHeaders(
+                    uri.Host,
+                    new HttpRequestMessage { Method = HttpMethod.Get, RequestUri = uri }
+                ),
+                HttpCompletionOption.ResponseHeadersRead
+            );
             if (response.StatusCode != HttpStatusCode.OK)
             {
                 throw new InvalidOperationException($"Invalid {uri} response: {response}");
             }
-
             ;
             return response;
         }
@@ -285,11 +354,24 @@ namespace Cézanne.Core.Maven
             return xml;
         }
 
-        private string _ToRelativePath(string? baseUrl, string group, string artifact, string version,
-            string? classifier, string type, string rootVersion)
+        private string _ToRelativePath(
+            string? baseUrl,
+            string group,
+            string artifact,
+            string version,
+            string? classifier,
+            string type,
+            string rootVersion
+        )
         {
-            StringBuilder builder = new(baseUrl == null ? "" :
-                baseUrl.EndsWith("/") ? baseUrl : baseUrl + '/');
+            StringBuilder builder =
+                new(
+                    baseUrl == null
+                        ? ""
+                        : baseUrl.EndsWith("/")
+                            ? baseUrl
+                            : baseUrl + '/'
+                );
             builder.Append(group.Replace('.', '/')).Append('/');
             builder.Append(artifact).Append('/');
             builder.Append(rootVersion).Append('/');
@@ -315,17 +397,27 @@ namespace Cézanne.Core.Maven
 
         public string? FindSettingsXml()
         {
-            var settings = _configuration.PreferLocalSettingsXml || _configuration.ForceCustomSettingsXml
-                ? Path.Combine(LocalRepository, "settings.xml")
-                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".m2/settings.xml");
+            var settings =
+                _configuration.PreferLocalSettingsXml || _configuration.ForceCustomSettingsXml
+                    ? Path.Combine(LocalRepository, "settings.xml")
+                    : Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                        ".m2/settings.xml"
+                    );
             if (!File.Exists(settings))
             {
-                settings = _configuration.PreferLocalSettingsXml || !_configuration.ForceCustomSettingsXml
-                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".m2/settings.xml")
-                    : Path.Combine(LocalRepository, "settings.xml");
+                settings =
+                    _configuration.PreferLocalSettingsXml || !_configuration.ForceCustomSettingsXml
+                        ? Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                            ".m2/settings.xml"
+                        )
+                        : Path.Combine(LocalRepository, "settings.xml");
                 if (!File.Exists(settings))
                 {
-                    throw new ArgumentException($"No {settings} found, ensure your credentials configuration is valid");
+                    throw new ArgumentException(
+                        $"No {settings} found, ensure your credentials configuration is valid"
+                    );
                 }
             }
 
@@ -363,7 +455,8 @@ namespace Cézanne.Core.Maven
                 {
                     return new Server(
                         node.SelectSingleNode("./username")?.InnerText,
-                        node.SelectSingleNode("./password")?.InnerText);
+                        node.SelectSingleNode("./password")?.InnerText
+                    );
                 }
             }
 
@@ -403,9 +496,11 @@ namespace Cézanne.Core.Maven
 
                 Dictionary<string, string> value = new();
                 var valueSep = line[(sep + 1)..].TrimStart().IndexOf('=');
-                var valueBuilder =
-                    ImmutableDictionary.CreateBuilder<string, string>();
-                valueBuilder.Add(line[(sep + 1)..valueSep].Trim(), line[(valueSep + 1)..].TrimStart());
+                var valueBuilder = ImmutableDictionary.CreateBuilder<string, string>();
+                valueBuilder.Add(
+                    line[(sep + 1)..valueSep].Trim(),
+                    line[(valueSep + 1)..].TrimStart()
+                );
 
                 _HttpHeaders.Add(line[..sep].Trim(), valueBuilder.ToImmutable());
             }
@@ -413,13 +508,18 @@ namespace Cézanne.Core.Maven
 
         private string _InitializeM2()
         {
-            if (_configuration.LocalRepository is not null && _configuration.LocalRepository != "auto")
+            if (
+                _configuration.LocalRepository is not null
+                && _configuration.LocalRepository != "auto"
+            )
             {
                 return _configuration.LocalRepository;
             }
 
-            var m2 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".m2/repository");
+            var m2 = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".m2/repository"
+            );
             var settingsXml = Path.Combine(m2, "settings.xml");
             if (File.Exists(settingsXml))
             {
@@ -432,7 +532,9 @@ namespace Cézanne.Core.Maven
                         var end = content.IndexOf("</localRepository>", start);
                         if (end > 0)
                         {
-                            var localM2RepositoryFromSettings = content[(start + "<localRepository>".Length)..end];
+                            var localM2RepositoryFromSettings = content[
+                                (start + "<localRepository>".Length)..end
+                            ];
                             if (!string.IsNullOrWhiteSpace(localM2RepositoryFromSettings))
                             {
                                 m2 = localM2RepositoryFromSettings;
@@ -442,7 +544,11 @@ namespace Cézanne.Core.Maven
                 }
                 catch (Exception e)
                 {
-                    _logger.LogWarning("An error occured loading '{settingsXml}':\n{e}", settingsXml, e);
+                    _logger.LogWarning(
+                        "An error occured loading '{settingsXml}':\n{e}",
+                        settingsXml,
+                        e
+                    );
                 }
             }
 
@@ -462,24 +568,31 @@ namespace Cézanne.Core.Maven
             {
                 try
                 {
-                    if (FindMavenServer("bundlebee." + host) is { Username: not null, Password: not null } server)
+                    if (
+                        FindMavenServer("bundlebee." + host) is
+                        { Username: not null, Password: not null } server
+                    )
                     {
                         var key = $"{server.Username}:{server.Password}";
-                        request.Headers.Add("Authorization",
-                            $"Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes(key))}");
+                        request.Headers.Add(
+                            "Authorization",
+                            $"Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes(key))}"
+                        );
                     }
                 }
                 catch (Exception re)
                 {
-                    _logger.LogDebug("Can't look up for a maven server for host {host}:\n{re}", host, re);
+                    _logger.LogDebug(
+                        "Can't look up for a maven server for host {host}:\n{re}",
+                        host,
+                        re
+                    );
                 }
             }
 
             return request;
         }
 
-        public record Server(string? Username, string? Password)
-        {
-        }
+        public record Server(string? Username, string? Password) { }
     }
 }

@@ -22,21 +22,26 @@ namespace Cézanne.Core.Tests.Maven
                         PreferLocalSettingsXml = false,
                         ForceCustomSettingsXml = true,
                         LocalRepository = Temp ?? throw new ArgumentNullException("Temp")
-                    }, new Logger<MavenService>(new NullLoggerFactory()));
+                    },
+                    new Logger<MavenService>(new NullLoggerFactory())
+                );
 
             Directory.CreateDirectory(Temp);
             var settings = Path.Combine(Temp, "settings.xml");
-            File.WriteAllText(settings, """
-                                        <settings>
-                                          <servers>
-                                            <server>
-                                              <id>test</id>
-                                              <username>usr</username>
-                                              <password>pwd</password>
-                                            </server>
-                                          </servers>
-                                        </settings>
-                                        """);
+            File.WriteAllText(
+                settings,
+                """
+                <settings>
+                  <servers>
+                    <server>
+                      <id>test</id>
+                      <username>usr</username>
+                      <password>pwd</password>
+                    </server>
+                  </servers>
+                </settings>
+                """
+            );
 
             var server = maven.FindMavenServer("test");
             Assert.Multiple(() =>
@@ -63,15 +68,18 @@ namespace Cézanne.Core.Tests.Maven
             await mockServer.StartAsync();
 
             using var server = mockServer;
-            using MavenService maven = new(
-                new MavenConfiguration
-                {
-                    PreferLocalSettingsXml = false,
-                    ForceCustomSettingsXml = true,
-                    EnableDownload = true,
-                    ReleaseRepository = mockServer.Urls.First(),
-                    LocalRepository = Temp ?? throw new ArgumentNullException("Temp")
-                }, new Logger<MavenService>(new NullLoggerFactory()));
+            using MavenService maven =
+                new(
+                    new MavenConfiguration
+                    {
+                        PreferLocalSettingsXml = false,
+                        ForceCustomSettingsXml = true,
+                        EnableDownload = true,
+                        ReleaseRepository = mockServer.Urls.First(),
+                        LocalRepository = Temp ?? throw new ArgumentNullException("Temp")
+                    },
+                    new Logger<MavenService>(new NullLoggerFactory())
+                );
 
             var expectedLocal = Path.Combine(Temp, "io/yupiik/bundlebee/test/1.2.3/test-1.2.3.jar");
             Directory.GetParent(expectedLocal)?.Create();

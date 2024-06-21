@@ -23,20 +23,26 @@ namespace Cézanne.Core.Service
 
         private void _Check(Manifest.Requirement requirement)
         {
-            if (requirement.MinBundlebeeVersion != null &&
-                !string.IsNullOrWhiteSpace(requirement.MinBundlebeeVersion) &&
-                !_CompareVersion(requirement.MinBundlebeeVersion, true))
+            if (
+                requirement.MinBundlebeeVersion != null
+                && !string.IsNullOrWhiteSpace(requirement.MinBundlebeeVersion)
+                && !_CompareVersion(requirement.MinBundlebeeVersion, true)
+            )
             {
                 throw new InvalidOperationException(
-                    $"Invalid bundlebee version: {BundlebeeVersion} expected-min={requirement.MinBundlebeeVersion}");
+                    $"Invalid bundlebee version: {BundlebeeVersion} expected-min={requirement.MinBundlebeeVersion}"
+                );
             }
 
-            if (requirement.MaxBundlebeeVersion != null &&
-                !string.IsNullOrWhiteSpace(requirement.MaxBundlebeeVersion) &&
-                !_CompareVersion(requirement.MaxBundlebeeVersion, false))
+            if (
+                requirement.MaxBundlebeeVersion != null
+                && !string.IsNullOrWhiteSpace(requirement.MaxBundlebeeVersion)
+                && !_CompareVersion(requirement.MaxBundlebeeVersion, false)
+            )
             {
                 throw new InvalidOperationException(
-                    $"Invalid bundlebee version: {BundlebeeVersion} expected-max={requirement.MaxBundlebeeVersion}");
+                    $"Invalid bundlebee version: {BundlebeeVersion} expected-max={requirement.MaxBundlebeeVersion}"
+                );
             }
 
             if (requirement.ForbiddenVersions != null)
@@ -46,7 +52,8 @@ namespace Cézanne.Core.Service
                     if (_CompareVersion(version, null))
                     {
                         throw new InvalidOperationException(
-                            $"Invalid bundlebee version: {BundlebeeVersion} forbidden={requirement.ForbiddenVersions}");
+                            $"Invalid bundlebee version: {BundlebeeVersion} forbidden={requirement.ForbiddenVersions}"
+                        );
                     }
                 }
             }
@@ -97,7 +104,8 @@ namespace Cézanne.Core.Service
                 }
             }
 
-            return expectedSegments.Length < actualSegments.Length || expectedSegments.Length == actualSegments.Length;
+            return expectedSegments.Length < actualSegments.Length
+                || expectedSegments.Length == actualSegments.Length;
         }
     }
 }

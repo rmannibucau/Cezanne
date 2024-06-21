@@ -11,86 +11,104 @@ namespace Cézanne.Core.Descriptor
     {
         public enum AwaitConditionType
         {
-            [JsonPropertyName("JSON_POINTER")] [Description("JSON Pointer evaluation (fully custom).")]
+            [JsonPropertyName("JSON_POINTER")]
+            [Description("JSON Pointer evaluation (fully custom).")]
             JsonPointer,
 
-            [JsonPropertyName("STATUS_CONDITION")] [Description("Evaluate items in `/status/conditions`.")]
+            [JsonPropertyName("STATUS_CONDITION")]
+            [Description("Evaluate items in `/status/conditions`.")]
             StatusCondition
         }
 
         public enum ConditionOperator
         {
-            [Description("At least one condition must match.")] [JsonPropertyName("ANY")]
+            [Description("At least one condition must match.")]
+            [JsonPropertyName("ANY")]
             Any,
 
-            [Description("All conditions must match.")] [JsonPropertyName("ALL")]
+            [Description("All conditions must match.")]
+            [JsonPropertyName("ALL")]
             All
         }
 
         public enum ConditionType
         {
-            [Description("Key is read from process environment variables.")] [JsonPropertyName("ENV")]
+            [Description("Key is read from process environment variables.")]
+            [JsonPropertyName("ENV")]
             Env,
 
-            [Description("Key is read from application settings, either `cezanne` section or `AppSettings`.")]
+            [Description(
+                "Key is read from application settings, either `cezanne` section or `AppSettings`."
+            )]
             [JsonPropertyName("SYSTEM_PROPERTY")]
             SystemProperty
         }
 
         public enum JsonPointerOperator
         {
-            [JsonPropertyName("EXISTS")] [Description("JSON Pointer exists model.")]
+            [JsonPropertyName("EXISTS")]
+            [Description("JSON Pointer exists model.")]
             Exists,
 
-            [JsonPropertyName("MISSING")] [Description("JSON Pointer does not exist in the resource model.")]
+            [JsonPropertyName("MISSING")]
+            [Description("JSON Pointer does not exist in the resource model.")]
             Missing,
 
-            [JsonPropertyName("EQUALS")] [Description("JSON Pointer value is equal to (stringified comparison) value.")]
+            [JsonPropertyName("EQUALS")]
+            [Description("JSON Pointer value is equal to (stringified comparison) value.")]
             EqualsValue,
 
-            [JsonPropertyName("NOT_EQUALS")] [Description("JSON Pointer is different from the provided value.")]
+            [JsonPropertyName("NOT_EQUALS")]
+            [Description("JSON Pointer is different from the provided value.")]
             NotEquals,
 
             [JsonPropertyName("EQUALS_IGNORE_CASE")]
-            [Description("JSON Pointer value is equal (ignoring case) to (stringified comparison) value.")]
+            [Description(
+                "JSON Pointer value is equal (ignoring case) to (stringified comparison) value."
+            )]
             EqualsIgnoreCase,
 
             [JsonPropertyName("NOT_EQUALS_IGNORE_CASE")]
             [Description("JSON Pointer is different (ignoring case) from the provided value.")]
             NotEqualsIgnoreCase,
 
-            [JsonPropertyName("CONTAINS")] [Description("JSON Pointer contains the configured value.")]
+            [JsonPropertyName("CONTAINS")]
+            [Description("JSON Pointer contains the configured value.")]
             Contains
         }
 
-        private static readonly JsonSerializerOptions DefaultToStringJsonOptions = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
-        };
+        private static readonly JsonSerializerOptions DefaultToStringJsonOptions =
+            new()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
+            };
 
         [Description("Ignored linting rule names when using `lint` command.")]
         public IEnumerable<IgnoredLintingRule> IgnoredLintingRules { get; set; } = [];
 
         [Description(
-            "Enables to consider all recipes have their `interpolateDescriptors` descriptor set to `true`, " +
-            "you can still set it to `false` if you want to disable it for one.")]
+            "Enables to consider all recipes have their `interpolateDescriptors` descriptor set to `true`, "
+                + "you can still set it to `false` if you want to disable it for one."
+        )]
         public bool InterpolateRecipe { get; set; } = false;
 
         [Description(
-            "List of files referenced as other manifests. " +
-            "They are merged with this (main) manifest by *appending* _requirements_ and _recipe_. " +
-            "It is relative to this manifest location. " +
-            "Important: it is only about the same module references, external references are dependencies in an recipes. " +
-            "It enables to split a huge `manifest.json` for an easier maintenance.")]
+            "List of files referenced as other manifests. "
+                + "They are merged with this (main) manifest by *appending* _requirements_ and _recipe_. "
+                + "It is relative to this manifest location. "
+                + "Important: it is only about the same module references, external references are dependencies in an recipes. "
+                + "It enables to split a huge `manifest.json` for an easier maintenance."
+        )]
         public IEnumerable<ManifestReference> References { get; set; } = [];
 
         [Description(
-            "Pre manifest execution checks (bundlebee version typically). " +
-            "Avoids to install using a bundlebee/Cézanne version not compatible with the recipes. Can be fully omitted.")]
+            "Pre manifest execution checks (bundlebee version typically). "
+                + "Avoids to install using a bundlebee/Cézanne version not compatible with the recipes. Can be fully omitted."
+        )]
         public IEnumerable<Requirement> Requirements { get; set; } = [];
 
         [Description("List of described applications/libraries.")]
@@ -105,10 +123,11 @@ namespace Cézanne.Core.Descriptor
 
         private bool Equals(Manifest other)
         {
-            return IgnoredLintingRules.SequenceEqual(other.IgnoredLintingRules) &&
-                   InterpolateRecipe == other.InterpolateRecipe &&
-                   References.SequenceEqual(other.References) && Requirements.SequenceEqual(other.Requirements) &&
-                   Recipes.SequenceEqual(other.Recipes);
+            return IgnoredLintingRules.SequenceEqual(other.IgnoredLintingRules)
+                && InterpolateRecipe == other.InterpolateRecipe
+                && References.SequenceEqual(other.References)
+                && Requirements.SequenceEqual(other.Requirements)
+                && Recipes.SequenceEqual(other.Recipes);
         }
 
         public override bool Equals(object? obj)
@@ -133,7 +152,13 @@ namespace Cézanne.Core.Descriptor
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(IgnoredLintingRules, InterpolateRecipe, References, Requirements, Recipes);
+            return HashCode.Combine(
+                IgnoredLintingRules,
+                InterpolateRecipe,
+                References,
+                Requirements,
+                Recipes
+            );
         }
 
         public override string ToString()
@@ -144,39 +169,50 @@ namespace Cézanne.Core.Descriptor
         public class Patch
         {
             [Description(
-                "Conditions to include this patch. " +
-                "Enables for example to have an environment variable enabling part of the stack (ex: `MONITORING=true`)")]
+                "Conditions to include this patch. "
+                    + "Enables for example to have an environment variable enabling part of the stack (ex: `MONITORING=true`)"
+            )]
             public Conditions? IncludeIf { get; set; }
 
             [Description(
-                "The descriptor to patch. It can be any descriptor, including transitive ones. " +
-                "It can be `*` to patch all descriptors (`/metadata/label/app` for example) or " +
-                "`regex:<java pattern>` to match descriptor names with a regex.")]
+                "The descriptor to patch. It can be any descriptor, including transitive ones. "
+                    + "It can be `*` to patch all descriptors (`/metadata/label/app` for example) or "
+                    + "`regex:<java pattern>` to match descriptor names with a regex."
+            )]
             public string? DescriptorName { get; set; }
 
             [Description(
-                "If set to `true`, it will interpolate the patch from the execution configuration which means " +
-                "you can use `--<config-key> <value>` to inject bindings too. " +
-                "An interesting interpolation is the ability to extract the ip/host of the host machine (`minikube ip` equivalent) using the kubeconfig file. " +
-                "Syntax is the following one: `{{kubeconfig.cluster.minikube.ip}}` or more generally `{{kubeconfig.cluster.<cluster name>.ip}}`. " +
-                "You can also await for some secret with this syntax " +
-                "`{{kubernetes.<namespace>.serviceaccount.<account name>.secrets.<secret name prefix>.data.<entry name>[.<timeout in seconds, default to 2mn>]}}`. " +
-                "This is particular useful to access freshly created service account tokens for example.")]
+                "If set to `true`, it will interpolate the patch from the execution configuration which means "
+                    + "you can use `--<config-key> <value>` to inject bindings too. "
+                    + "An interesting interpolation is the ability to extract the ip/host of the host machine (`minikube ip` equivalent) using the kubeconfig file. "
+                    + "Syntax is the following one: `{{kubeconfig.cluster.minikube.ip}}` or more generally `{{kubeconfig.cluster.<cluster name>.ip}}`. "
+                    + "You can also await for some secret with this syntax "
+                    + "`{{kubernetes.<namespace>.serviceaccount.<account name>.secrets.<secret name prefix>.data.<entry name>[.<timeout in seconds, default to 2mn>]}}`. "
+                    + "This is particular useful to access freshly created service account tokens for example."
+            )]
             public bool? Interpolate { get; set; }
 
-            [Description("" +
-                         "JSON-Patch to apply on the JSON representation of the descriptor. " +
-                         "It enables to inject configuration in descriptors for example, or changing some name/application.")]
+            [Description(
+                ""
+                    + "JSON-Patch to apply on the JSON representation of the descriptor. "
+                    + "It enables to inject configuration in descriptors for example, or changing some name/application."
+            )]
             [JsonPropertyName("patch")]
             public JsonArray? PatchValue { get; set; }
 
             protected bool Equals(Patch other)
             {
-                return Equals(IncludeIf, other.IncludeIf) && DescriptorName == other.DescriptorName &&
-                       Interpolate == other.Interpolate &&
-                       (PatchValue == other.PatchValue || (PatchValue != null && other.PatchValue != null &&
-                                                           PatchValue.ToJsonString() ==
-                                                           other.PatchValue.ToJsonString()));
+                return Equals(IncludeIf, other.IncludeIf)
+                    && DescriptorName == other.DescriptorName
+                    && Interpolate == other.Interpolate
+                    && (
+                        PatchValue == other.PatchValue
+                        || (
+                            PatchValue != null
+                            && other.PatchValue != null
+                            && PatchValue.ToJsonString() == other.PatchValue.ToJsonString()
+                        )
+                    );
             }
 
             public override bool Equals(object? obj)
@@ -213,68 +249,101 @@ namespace Cézanne.Core.Descriptor
         public class Recipe
         {
             [Description(
-                "Enables to consider all descriptors have their `interpolate` descriptor set to `true`, you can still set it to `false` if you want to disable it for one. " +
-                "If not set, `interpolateAlveoli` flag from the manifest.")]
+                "Enables to consider all descriptors have their `interpolate` descriptor set to `true`, you can still set it to `false` if you want to disable it for one. "
+                    + "If not set, `interpolateAlveoli` flag from the manifest."
+            )]
             public bool? InterpolateDescriptors { get; set; }
 
             [Description("Optional description for `list-recipes` command.")]
             public string? Description { get; set; }
 
             [Description(
-                "Name of the recipe. It must be unique accross the whole classpath. " +
-                "Using maven style identifier, it is recommended to name it " +
-                "`<groupId>:<artifactId>:<version>` using maven filtering but it is not enforced.")]
+                "Name of the recipe. It must be unique accross the whole classpath. "
+                    + "Using maven style identifier, it is recommended to name it "
+                    + "`<groupId>:<artifactId>:<version>` using maven filtering but it is not enforced."
+            )]
             public string? Name { get; set; }
 
             [Description(
-                "If name does not follow `<groupId>:<artifactId>:<version>` naming (i.e. version can't be extracted from the name) " +
-                "then you can specify the version there. " +
-                "Note that if set, this is used in priority (explicit versus deduced).")]
+                "If name does not follow `<groupId>:<artifactId>:<version>` naming (i.e. version can't be extracted from the name) "
+                    + "then you can specify the version there. "
+                    + "Note that if set, this is used in priority (explicit versus deduced)."
+            )]
             public string? Version { get; set; }
 
-            [Description("List of descriptors to install for this recipe. This is required even if an empty array.")]
+            [Description(
+                "List of descriptors to install for this recipe. This is required even if an empty array."
+            )]
             public IEnumerable<Descriptor>? Descriptors { get; set; } = [];
 
-            [Description("Dependencies of this recipe. It is a way to import transitively a set of descriptors.")]
+            [Description(
+                "Dependencies of this recipe. It is a way to import transitively a set of descriptors."
+            )]
             public IEnumerable<Dependency>? Dependencies { get; set; } = [];
 
             [Description(
-                "Should dependencies be installed one after the other or in parallel (default). " +
-                "It is useful when you install a namespace for example which must be awaited before next dependencies are installed.")]
+                "Should dependencies be installed one after the other or in parallel (default). "
+                    + "It is useful when you install a namespace for example which must be awaited before next dependencies are installed."
+            )]
             public bool? ChainDependencies { get; set; }
 
-            [Description("List of descriptors to ignore for this recipe (generally coming from dependencies).")]
+            [Description(
+                "List of descriptors to ignore for this recipe (generally coming from dependencies)."
+            )]
             public IEnumerable<DescriptorRef>? ExcludedDescriptors { get; set; } = [];
 
             [Description(
-                "Patches on descriptors. " +
-                "It enables to inject configuration in descriptors by patching " +
-                "(using JSON-Patch or plain interpolation with `${key}` values) their JSON representation. " +
-                "The key is the descriptor name and each time the descriptor is found it will be applied.")]
+                "Patches on descriptors. "
+                    + "It enables to inject configuration in descriptors by patching "
+                    + "(using JSON-Patch or plain interpolation with `${key}` values) their JSON representation. "
+                    + "The key is the descriptor name and each time the descriptor is found it will be applied."
+            )]
             public IEnumerable<Patch>? Patches { get; set; } = [];
 
             [Description(
-                "Local placeholders for this particular recipe and its dependencies. " +
-                "It is primarly intended to be able to create a template recipe and inject the placeholders inline.")]
-            public IDictionary<string, string>? Placeholders { get; set; } = new Dictionary<string, string>();
+                "Local placeholders for this particular recipe and its dependencies. "
+                    + "It is primarly intended to be able to create a template recipe and inject the placeholders inline."
+            )]
+            public IDictionary<string, string>? Placeholders { get; set; } =
+                new Dictionary<string, string>();
 
             private bool Equals(Recipe other)
             {
-                return (InterpolateDescriptors ?? false) == (other.InterpolateDescriptors ?? false) &&
-                       Name == other.Name &&
-                       Version == other.Version &&
-                       (Equals(Descriptors, other.Descriptors) || (Descriptors != null &&
-                                                                   other.Descriptors != null &&
-                                                                   Descriptors.SequenceEqual(other.Descriptors))) &&
-                       (Equals(Dependencies, other.Dependencies) || (Dependencies != null &&
-                                                                     other.Dependencies != null &&
-                                                                     Dependencies.SequenceEqual(other.Dependencies))) &&
-                       (Equals(ExcludedDescriptors, other.ExcludedDescriptors) || (ExcludedDescriptors != null &&
-                           other.ExcludedDescriptors != null &&
-                           ExcludedDescriptors.SequenceEqual(other.ExcludedDescriptors))) &&
-                       (Equals(Placeholders, other.Placeholders) || (Placeholders != null &&
-                                                                     other.Placeholders != null &&
-                                                                     Placeholders.SequenceEqual(other.Placeholders)));
+                return (InterpolateDescriptors ?? false) == (other.InterpolateDescriptors ?? false)
+                    && Name == other.Name
+                    && Version == other.Version
+                    && (
+                        Equals(Descriptors, other.Descriptors)
+                        || (
+                            Descriptors != null
+                            && other.Descriptors != null
+                            && Descriptors.SequenceEqual(other.Descriptors)
+                        )
+                    )
+                    && (
+                        Equals(Dependencies, other.Dependencies)
+                        || (
+                            Dependencies != null
+                            && other.Dependencies != null
+                            && Dependencies.SequenceEqual(other.Dependencies)
+                        )
+                    )
+                    && (
+                        Equals(ExcludedDescriptors, other.ExcludedDescriptors)
+                        || (
+                            ExcludedDescriptors != null
+                            && other.ExcludedDescriptors != null
+                            && ExcludedDescriptors.SequenceEqual(other.ExcludedDescriptors)
+                        )
+                    )
+                    && (
+                        Equals(Placeholders, other.Placeholders)
+                        || (
+                            Placeholders != null
+                            && other.Placeholders != null
+                            && Placeholders.SequenceEqual(other.Placeholders)
+                        )
+                    );
             }
 
             public override bool Equals(object? obj)
@@ -328,15 +397,16 @@ namespace Cézanne.Core.Descriptor
             public IEnumerable<AwaitCondition> Conditions { get; set; } = [];
 
             [Description(
-                "Command to apply these conditions to, if not set it will be applied on `apply` command only. " +
-                "Note that for now only `apply` and `delete` commands are supported, others will be ignored.")]
+                "Command to apply these conditions to, if not set it will be applied on `apply` command only. "
+                    + "Note that for now only `apply` and `delete` commands are supported, others will be ignored."
+            )]
             public string Command { get; set; } = "apply";
 
             protected bool Equals(AwaitConditions other)
             {
-                return OperatorType == other.OperatorType &&
-                       Conditions.SequenceEqual(other.Conditions) &&
-                       Command == other.Command;
+                return OperatorType == other.OperatorType
+                    && Conditions.SequenceEqual(other.Conditions)
+                    && Command == other.Command;
             }
 
             public override bool Equals(object? obj)
@@ -371,32 +441,44 @@ namespace Cézanne.Core.Descriptor
             [JsonPropertyName("type")]
             public AwaitConditionType TypeValue { get; set; } = AwaitConditionType.JsonPointer;
 
-            [Description("" +
-                         "JSON Pointer to read from the resource. " +
-                         "It can for example be on `/status/phase` to await a namespace creation. " +
-                         "(for `type=JSON_POINTER`).")]
+            [Description(
+                ""
+                    + "JSON Pointer to read from the resource. "
+                    + "It can for example be on `/status/phase` to await a namespace creation. "
+                    + "(for `type=JSON_POINTER`)."
+            )]
             public string? Pointer { get; set; } = "/";
 
-            [Description("" +
-                         "The operation to evaluate if this condition is true or not. " +
-                         "(for `type=JSON_POINTER`).")]
-            public JsonPointerOperator? OperatorType { get; set; } = JsonPointerOperator.EqualsValue;
+            [Description(
+                ""
+                    + "The operation to evaluate if this condition is true or not. "
+                    + "(for `type=JSON_POINTER`)."
+            )]
+            public JsonPointerOperator? OperatorType { get; set; } =
+                JsonPointerOperator.EqualsValue;
 
-            [Description("" +
-                         "When condition type is `STATUS_CONDITION` it is the expected type of the condition. " +
-                         "This is ignored when condition type is `JSON_POINTER`.")]
+            [Description(
+                ""
+                    + "When condition type is `STATUS_CONDITION` it is the expected type of the condition. "
+                    + "This is ignored when condition type is `JSON_POINTER`."
+            )]
             public string? ConditionType { get; set; }
 
-            [Description("" +
-                         "When condition type is `JSON_POINTER` and `operatorType` needs a value (`EQUALS` for example), the related value. " +
-                         "It can be `Active` if you test namespace `/status/phase` for example. " +
-                         "When condition type is `STATUS_CONDITION` it is the expected status.")]
+            [Description(
+                ""
+                    + "When condition type is `JSON_POINTER` and `operatorType` needs a value (`EQUALS` for example), the related value. "
+                    + "It can be `Active` if you test namespace `/status/phase` for example. "
+                    + "When condition type is `STATUS_CONDITION` it is the expected status."
+            )]
             public object? Value { get; set; }
 
             protected bool Equals(AwaitCondition other)
             {
-                return TypeValue == other.TypeValue && Pointer == other.Pointer && OperatorType == other.OperatorType &&
-                       ConditionType == other.ConditionType && Value == other.Value;
+                return TypeValue == other.TypeValue
+                    && Pointer == other.Pointer
+                    && OperatorType == other.OperatorType
+                    && ConditionType == other.ConditionType
+                    && Value == other.Value;
             }
 
             public override bool Equals(object? obj)
@@ -432,38 +514,50 @@ namespace Cézanne.Core.Descriptor
 
         public class Descriptor
         {
-            [Description("Type of this descriptor. For now only `kubernetes` is supported. " +
-                         "It also defines in which folder under `bundlebee` the descriptor(s) are looked for from its name.")]
+            [Description(
+                "Type of this descriptor. For now only `kubernetes` is supported. "
+                    + "It also defines in which folder under `bundlebee` the descriptor(s) are looked for from its name."
+            )]
             public string? Type { get; set; } = "kubernetes";
 
             [Description(
-                "Name of the descriptor to install. For kubernetes descriptors you can omit the `.yaml` extension.")]
+                "Name of the descriptor to install. For kubernetes descriptors you can omit the `.yaml` extension."
+            )]
             public string? Name { get; set; }
 
-            [Description("Optional, if coming from another manifest, the dependency to download to get the recipe.")]
+            [Description(
+                "Optional, if coming from another manifest, the dependency to download to get the recipe."
+            )]
             public string? Location { get; set; }
 
-            [Description("" +
-                         "If set to `true`, apply/delete commands will await the actual creation of the resource (`GET /x` returns a HTTP 200) before continuing to process next resources. " +
-                         "It is useful for namespaces for example to ensure applications can be created in the newly created namespace. " +
-                         "It avoids to run and rerun apply command in practise. " +
-                         "For more advanced tests, use `awaitConditions`.")]
+            [Description(
+                ""
+                    + "If set to `true`, apply/delete commands will await the actual creation of the resource (`GET /x` returns a HTTP 200) before continuing to process next resources. "
+                    + "It is useful for namespaces for example to ensure applications can be created in the newly created namespace. "
+                    + "It avoids to run and rerun apply command in practise. "
+                    + "For more advanced tests, use `awaitConditions`."
+            )]
             public bool Await { get; set; } = false;
 
             [Description(
-                "On delete we rarely want to check the resource exists before but in these rare case you can set this toggle to `true`.")]
+                "On delete we rarely want to check the resource exists before but in these rare case you can set this toggle to `true`."
+            )]
             public bool? AwaitOnDelete { get; set; }
 
-            [Description("" +
-                         "Test to do on created/destroyed resources, enables to synchronize and await kubernetes actually starts some resource. " +
-                         "For `apply` and `delete` commands, `descriptorAwaitTimeout` is still applied. " +
-                         "Note that if you use multiple array entries for the same command it will be evaluated with an `AND`.")]
+            [Description(
+                ""
+                    + "Test to do on created/destroyed resources, enables to synchronize and await kubernetes actually starts some resource. "
+                    + "For `apply` and `delete` commands, `descriptorAwaitTimeout` is still applied. "
+                    + "Note that if you use multiple array entries for the same command it will be evaluated with an `AND`."
+            )]
             public IEnumerable<AwaitConditions>? AwaitConditions { get; set; }
 
-            [Description("" +
-                         "If set to `true`, it will interpolate the descriptor just before applying it - i.e. after it had been patched if needed. " +
-                         "You can use `--<config-key> <value>` to inject bindings set as `{{config-key:-default value}}`. " +
-                         "If not set, `interpolateDescriptors` flag from the recipe will be used.")]
+            [Description(
+                ""
+                    + "If set to `true`, it will interpolate the descriptor just before applying it - i.e. after it had been patched if needed. "
+                    + "You can use `--<config-key> <value>` to inject bindings set as `{{config-key:-default value}}`. "
+                    + "If not set, `interpolateDescriptors` flag from the recipe will be used."
+            )]
             public bool? Interpolate { get; set; }
 
             [Description("Conditions to include this descriptor.")]
@@ -481,10 +575,14 @@ namespace Cézanne.Core.Descriptor
 
             protected bool Equals(Descriptor other)
             {
-                return Type == other.Type && Name == other.Name && Location == other.Location && Await == other.Await &&
-                       AwaitOnDelete == other.AwaitOnDelete &&
-                       (AwaitConditions ?? []).SequenceEqual(other.AwaitConditions ?? []) &&
-                       Interpolate == other.Interpolate && Equals(IncludeIf, other.IncludeIf);
+                return Type == other.Type
+                    && Name == other.Name
+                    && Location == other.Location
+                    && Await == other.Await
+                    && AwaitOnDelete == other.AwaitOnDelete
+                    && (AwaitConditions ?? []).SequenceEqual(other.AwaitConditions ?? [])
+                    && Interpolate == other.Interpolate
+                    && Equals(IncludeIf, other.IncludeIf);
             }
 
             public override bool Equals(object? obj)
@@ -509,8 +607,16 @@ namespace Cézanne.Core.Descriptor
 
             public override int GetHashCode()
             {
-                return HashCode.Combine(Type, Name, Location, Await, AwaitOnDelete, AwaitConditions, Interpolate,
-                    IncludeIf);
+                return HashCode.Combine(
+                    Type,
+                    Name,
+                    Location,
+                    Await,
+                    AwaitOnDelete,
+                    AwaitConditions,
+                    Interpolate,
+                    IncludeIf
+                );
             }
 
             public override string ToString()
@@ -531,8 +637,8 @@ namespace Cézanne.Core.Descriptor
 
             protected bool Equals(Conditions other)
             {
-                return OperatorType == other.OperatorType &&
-                       (ConditionsList ?? []).SequenceEqual(other.ConditionsList ?? []);
+                return OperatorType == other.OperatorType
+                    && (ConditionsList ?? []).SequenceEqual(other.ConditionsList ?? []);
             }
 
             public override bool Equals(object? obj)
@@ -575,15 +681,21 @@ namespace Cézanne.Core.Descriptor
             public bool? Negate { get; set; } = false;
 
             [Description(
-                "Expected key. If empty/null condition is ignored. If read value is null it defaults to an empty string.")]
+                "Expected key. If empty/null condition is ignored. If read value is null it defaults to an empty string."
+            )]
             public string? Key { get; set; }
 
-            [Description("Expected value. If empty/null, `true` is assumed. Note that empty is allowed.")]
+            [Description(
+                "Expected value. If empty/null, `true` is assumed. Note that empty is allowed."
+            )]
             public string? Value { get; set; }
 
             protected bool Equals(Condition other)
             {
-                return Type == other.Type && Negate == other.Negate && Key == other.Key && Value == other.Value;
+                return Type == other.Type
+                    && Negate == other.Negate
+                    && Key == other.Key
+                    && Value == other.Value;
             }
 
             public override bool Equals(object? obj)
@@ -619,19 +731,26 @@ namespace Cézanne.Core.Descriptor
 
         public class Dependency
         {
-            [Description("Recipe name.")] public string? Name { get; set; }
+            [Description("Recipe name.")]
+            public string? Name { get; set; }
 
-            [Description("Where to find the recipe. " +
-                         "Note it will ensure the jar is present on the local maven repository.")]
+            [Description(
+                "Where to find the recipe. "
+                    + "Note it will ensure the jar is present on the local maven repository."
+            )]
             public string? Location { get; set; }
 
-            [Description("Conditions to include this dependency. " +
-                         "Enables for example to have an environment variable enabling part of the stack (ex: `MONITORING=true`)")]
+            [Description(
+                "Conditions to include this dependency. "
+                    + "Enables for example to have an environment variable enabling part of the stack (ex: `MONITORING=true`)"
+            )]
             public Conditions? IncludeIf { get; set; }
 
             protected bool Equals(Dependency other)
             {
-                return Name == other.Name && Location == other.Location && Equals(IncludeIf, other.IncludeIf);
+                return Name == other.Name
+                    && Location == other.Location
+                    && Equals(IncludeIf, other.IncludeIf);
             }
 
             public override bool Equals(object? obj)
@@ -667,7 +786,9 @@ namespace Cézanne.Core.Descriptor
 
         public class DescriptorRef
         {
-            [Description("Name of the descriptor (as declared, ie potentially without the extension).")]
+            [Description(
+                "Name of the descriptor (as declared, ie potentially without the extension)."
+            )]
             public string? Name { get; set; }
 
             [Description("The container of the descriptor (maven coordinates generally).")]
@@ -712,32 +833,39 @@ namespace Cézanne.Core.Descriptor
         public class Requirement
         {
             [Description(
-                "Minimum bundlebee version, use `*` to replace any digit in a segment. " +
-                "Note that snapshot is ignored in the comparison for convenience. " +
-                "It is an inclusive comparison.")]
+                "Minimum bundlebee version, use `*` to replace any digit in a segment. "
+                    + "Note that snapshot is ignored in the comparison for convenience. "
+                    + "It is an inclusive comparison."
+            )]
             public string? MinBundlebeeVersion { get; set; }
 
             [Description(
-                "Minimum bundlebee version, use `*`to replace any digit in a segment. " +
-                "Note that snapshot is ignored in the comparison for convenience. " +
-                "It is an inclusive comparison.")]
+                "Minimum bundlebee version, use `*`to replace any digit in a segment. "
+                    + "Note that snapshot is ignored in the comparison for convenience. "
+                    + "It is an inclusive comparison."
+            )]
             public string? MaxBundlebeeVersion { get; set; }
 
             [Description(
-                "List of forbidden version (due to a bug or equivalent). " +
-                "Here too snapshot suffix is ignored. " +
-                "`*` is usable there too to replace any digit in a segment (ex: `1.*.*`). " +
-                "Note that `1.*` would *NOT* match `1.*.*`, version are always 3 segments.")]
+                "List of forbidden version (due to a bug or equivalent). "
+                    + "Here too snapshot suffix is ignored. "
+                    + "`*` is usable there too to replace any digit in a segment (ex: `1.*.*`). "
+                    + "Note that `1.*` would *NOT* match `1.*.*`, version are always 3 segments."
+            )]
             public IEnumerable<string>? ForbiddenVersions { get; set; } = [];
 
             protected bool Equals(Requirement other)
             {
-                return MinBundlebeeVersion == other.MinBundlebeeVersion &&
-                       MaxBundlebeeVersion == other.MaxBundlebeeVersion &&
-                       (Equals(ForbiddenVersions, other.ForbiddenVersions) || (ForbiddenVersions != null &&
-                                                                               other.ForbiddenVersions != null &&
-                                                                               ForbiddenVersions.SequenceEqual(
-                                                                                   other.ForbiddenVersions)));
+                return MinBundlebeeVersion == other.MinBundlebeeVersion
+                    && MaxBundlebeeVersion == other.MaxBundlebeeVersion
+                    && (
+                        Equals(ForbiddenVersions, other.ForbiddenVersions)
+                        || (
+                            ForbiddenVersions != null
+                            && other.ForbiddenVersions != null
+                            && ForbiddenVersions.SequenceEqual(other.ForbiddenVersions)
+                        )
+                    );
             }
 
             public override bool Equals(object? obj)
@@ -762,7 +890,11 @@ namespace Cézanne.Core.Descriptor
 
             public override int GetHashCode()
             {
-                return HashCode.Combine(MinBundlebeeVersion, MaxBundlebeeVersion, ForbiddenVersions);
+                return HashCode.Combine(
+                    MinBundlebeeVersion,
+                    MaxBundlebeeVersion,
+                    ForbiddenVersions
+                );
             }
 
             public override string ToString()
@@ -774,9 +906,10 @@ namespace Cézanne.Core.Descriptor
         public class ManifestReference
         {
             [Description(
-                "Relative or absolute - starting by a `/` - location (referenced to the base directory of `manifest.json`). " +
-                "For example `my-manifest.json` will resolve to `/path/to/cezanne/my-manifest.json` in a folder and `/cezanne/my-manifest.json` in a jar. " +
-                "Important: for resources (jar/classpath), the classloader is used so ensure your name is unique accross your classpath (we recommend you to prefix it with the module name, ex :`/cezanne/my-module.sub-manifest.json` or use a dedicated subfolder (`/cezanne/my-module/sub.json`).")]
+                "Relative or absolute - starting by a `/` - location (referenced to the base directory of `manifest.json`). "
+                    + "For example `my-manifest.json` will resolve to `/path/to/cezanne/my-manifest.json` in a folder and `/cezanne/my-manifest.json` in a jar. "
+                    + "Important: for resources (jar/classpath), the classloader is used so ensure your name is unique accross your classpath (we recommend you to prefix it with the module name, ex :`/cezanne/my-module.sub-manifest.json` or use a dedicated subfolder (`/cezanne/my-module/sub.json`)."
+            )]
             public string? Path { get; set; }
 
             protected bool Equals(ManifestReference other)

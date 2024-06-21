@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using System.Text.RegularExpressions;
 using Cézanne.Core.Cli;
 using Cézanne.Core.K8s;
 using Cézanne.Core.Maven;
@@ -8,8 +10,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Spectre.Console;
 using Spectre.Console.Rendering;
-using System.Collections.Immutable;
-using System.Text.RegularExpressions;
 
 namespace Cézanne.Core.Tests.Cli
 {
@@ -25,54 +25,77 @@ namespace Cézanne.Core.Tests.Cli
             _WriteSimpleRecipe(manifest, kubernetes, true);
 
             var descriptions = $"{baseDir}/descriptions.properties";
-            File.WriteAllText(descriptions,
-                "# descriptions\n\nmy.custom.value=Main placeholder.\nother.value=Some other value.\n");
+            File.WriteAllText(
+                descriptions,
+                "# descriptions\n\nmy.custom.value=Main placeholder.\nother.value=Some other value.\n"
+            );
 
             AnsiConsole.Record();
-            _Cezanne(baseDir).Run([
-                "placeholder-extract",
-                "-m", manifest,
-                "--descriptions", descriptions,
-                "-t", "FILE",
-                "-o", baseDir
-            ]);
+            _Cezanne(baseDir)
+                .Run(
+                    [
+                        "placeholder-extract",
+                        "-m",
+                        manifest,
+                        "--descriptions",
+                        descriptions,
+                        "-t",
+                        "FILE",
+                        "-o",
+                        baseDir
+                    ]
+                );
 
-            _AssertFile($"{baseDir}/placeholders.adoc", """
-                                                        `my.custom.value`*::
-                                                        Main placeholder.
+            _AssertFile(
+                $"{baseDir}/placeholders.adoc",
+                """
+                `my.custom.value`*::
+                Main placeholder.
 
 
-                                                        `other.value`::
-                                                        Some other value.
-                                                        Default: `fallback`.
-                                                        """.Replace("\r\n", "\n"));
-            _AssertFile($"{baseDir}/placeholders.md", """
-                                                      `my.custom.value`*
-                                                      :   Main placeholder.
+                `other.value`::
+                Some other value.
+                Default: `fallback`.
+                """.Replace("\r\n", "\n")
+            );
+            _AssertFile(
+                $"{baseDir}/placeholders.md",
+                """
+                `my.custom.value`*
+                :   Main placeholder.
 
 
-                                                      `other.value`
-                                                      :   Some other value.
-                                                          
-                                                          Default: `fallback`.
+                `other.value`
+                :   Some other value.
+                    
+                    Default: `fallback`.
 
-                                                      """.Replace("\r\n", "\n"));
-            _AssertFile($"{baseDir}/placeholders.json",
-                """{"items":[{"name":"my.custom.value","description":"Main placeholder.","required":true,"defaultValues":[]},{"name":"other.value","description":"Some other value.","required":false,"defaultValue":"fallback","defaultValues":["fallback"]}]}""");
-            _AssertFile($"{baseDir}/placeholders.properties", """
-                                                              # HELP: Main placeholder.
-                                                              #my.custom.value = 
+                """.Replace("\r\n", "\n")
+            );
+            _AssertFile(
+                $"{baseDir}/placeholders.json",
+                """{"items":[{"name":"my.custom.value","description":"Main placeholder.","required":true,"defaultValues":[]},{"name":"other.value","description":"Some other value.","required":false,"defaultValue":"fallback","defaultValues":["fallback"]}]}"""
+            );
+            _AssertFile(
+                $"{baseDir}/placeholders.properties",
+                """
+                # HELP: Main placeholder.
+                #my.custom.value = 
 
-                                                              # HELP: Some other value.
-                                                              #other.value = fallback
+                # HELP: Some other value.
+                #other.value = fallback
 
-                                                              """.Replace("\r\n", "\n"));
-            _AssertFile($"{baseDir}/placeholders.completion.properties", """
-                                                                         my.custom.value = Main placeholder.
+                """.Replace("\r\n", "\n")
+            );
+            _AssertFile(
+                $"{baseDir}/placeholders.completion.properties",
+                """
+                my.custom.value = Main placeholder.
 
-                                                                         other.value = Some other value.
+                other.value = Some other value.
 
-                                                                         """.Replace("\r\n", "\n"));
+                """.Replace("\r\n", "\n")
+            );
         }
 
         [Test]
@@ -88,26 +111,29 @@ namespace Cézanne.Core.Tests.Cli
             var result = AnsiConsole.ExportCustom(new Exporter());
             Assert.That(
                 Regex.Replace(result, "\\r?\\n[\\r?\\n]*", "\r\n", RegexOptions.Multiline),
-                Is.EqualTo($$"""
-                             [   info][      Cézanne.Core.Service.RecipeHandler] Inspecting 'test'
-                             Inspection Result
-                             └── test
-                                 └── Descriptors
-                                     └── descriptor.yaml
-                                         ├── From {{baseDir}}
-                                         └── ╭─Content─────────────────╮
-                                             │ {                       │
-                                             │    "kind": "ConfigMap", │
-                                             │    "apiVersion": "v1",  │
-                                             │    "metadata": {        │
-                                             │       "name": "test"    │
-                                             │    },                   │
-                                             │    "data": {            │
-                                             │    }                    │
-                                             │ }                       │
-                                             ╰─────────────────────────╯
-
-                             """));
+                Is.EqualTo(
+                    $$"""
+                    [   info][      Cézanne.Core.Service.RecipeHandler] Inspecting 'test'
+                    Inspection Result
+                    └── test
+                        └── Descriptors
+                            └── descriptor.yaml
+                                ├── From {{baseDir}}
+                                └── ╭─Content─────────────────╮
+                                    │ {                       │
+                                    │    "kind": "ConfigMap", │
+                                    │    "apiVersion": "v1",  │
+                                    │    "metadata": {        │
+                                    │       "name": "test"    │
+                                    │    },                   │
+                                    │    "data": {            │
+                                    │    }                    │
+                                    │ }                       │
+                                    ╰─────────────────────────╯
+                    
+                    """
+                )
+            );
         }
 
         [Test]
@@ -120,9 +146,7 @@ namespace Cézanne.Core.Tests.Cli
             var output = $"{baseDir}/output.txt";
             _Cezanne(baseDir).Run(["list-recipes", "-o", output, "-m", manifest]);
 
-            Assert.That(
-                File.ReadAllText(output),
-                Is.EqualTo("Found recipes:\n- test"));
+            Assert.That(File.ReadAllText(output), Is.EqualTo("Found recipes:\n- test"));
         }
 
         [Test]
@@ -137,13 +161,17 @@ namespace Cézanne.Core.Tests.Cli
 
             _Cezanne(baseDir, mockServer).Run(["apply", "-a", "test", "-m", manifest]);
 
-            Assert.That(requests,
-                Is.EqualTo(new HashSet<string>
-                {
-                    "GET /api/v1",
-                    "GET /api/v1/namespaces/default/configmaps/test",
-                    "PATCH /api/v1/namespaces/default/configmaps/test"
-                }));
+            Assert.That(
+                requests,
+                Is.EqualTo(
+                    new HashSet<string>
+                    {
+                        "GET /api/v1",
+                        "GET /api/v1/namespaces/default/configmaps/test",
+                        "PATCH /api/v1/namespaces/default/configmaps/test"
+                    }
+                )
+            );
         }
 
         [Test]
@@ -158,76 +186,86 @@ namespace Cézanne.Core.Tests.Cli
 
             _Cezanne(baseDir, mockServer).Run(["delete", "-a", "test", "-m", manifest]);
 
-            Assert.That(requests,
-                Is.EqualTo(new HashSet<string>
-                {
-                    "GET /api/v1",
-                    "DELETE /api/v1/namespaces/default/configmaps/test",
-                    "GET /api/v1/namespaces/default/configmaps/test"
-                }));
+            Assert.That(
+                requests,
+                Is.EqualTo(
+                    new HashSet<string>
+                    {
+                        "GET /api/v1",
+                        "DELETE /api/v1/namespaces/default/configmaps/test",
+                        "GET /api/v1/namespaces/default/configmaps/test"
+                    }
+                )
+            );
         }
 
-        private void _WriteSimpleRecipe(string manifest, string kubernetes, bool placeholder = false)
+        private void _WriteSimpleRecipe(
+            string manifest,
+            string kubernetes,
+            bool placeholder = false
+        )
         {
             Directory.CreateDirectory(kubernetes);
             File.WriteAllText(
                 manifest,
                 !placeholder
                     ? """
-                      {
-                          "recipes": [
-                              {
-                                  "name": "test",
-                                  "descriptors": [
-                                      {
-                                          "name": "descriptor.yaml"
-                                      }
-                                  ]
-                              }
-                          ]
-                      }
-                      """
+                    {
+                        "recipes": [
+                            {
+                                "name": "test",
+                                "descriptors": [
+                                    {
+                                        "name": "descriptor.yaml"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                    """
                     : """
-                      {
-                          "recipes": [
-                              {
-                                  "name": "test",
-                                  "descriptors": [
-                                      {
-                                          "interpolate": true,
-                                          "name": "descriptor.yaml"
-                                      }
-                                  ]
-                              }
-                          ]
-                      }
-                      """);
+                    {
+                        "recipes": [
+                            {
+                                "name": "test",
+                                "descriptors": [
+                                    {
+                                        "interpolate": true,
+                                        "name": "descriptor.yaml"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                    """
+            );
             File.WriteAllText(
                 Path.Combine(kubernetes, "descriptor.yaml"),
                 !placeholder
                     ? """
-                      {
-                          "kind": "ConfigMap",
-                          "apiVersion": "v1",
-                          "metadata": {
-                              "name": "test"
-                          },
-                          "data": {}
-                      }
-                      """
+                    {
+                        "kind": "ConfigMap",
+                        "apiVersion": "v1",
+                        "metadata": {
+                            "name": "test"
+                        },
+                        "data": {}
+                    }
+                    """
                     : """
-                      {
-                          "kind": "ConfigMap",
-                          "apiVersion": "v1",
-                          "metadata": {
-                              "name": "test"
-                          },
-                          "data": {
-                              "custom1":"{{my.custom.value}}",
-                              "custom2":"{{other.value:-fallback}}"
-                          }
-                      }
-                      """);
+                    {
+                        "kind": "ConfigMap",
+                        "apiVersion": "v1",
+                        "metadata": {
+                            "name": "test"
+                        },
+                        "data": {
+                            "custom1":"{{my.custom.value}}",
+                            "custom2":"{{other.value:-fallback}}"
+                        }
+                    }
+                    """
+            );
         }
 
         private async Task<(WebApplication, ISet<string>)> _MockK8s()
@@ -291,15 +329,16 @@ namespace Cézanne.Core.Tests.Cli
         {
             return new Cezanne
             {
-                K8SClientConfiguration =
-                    new K8SClientConfiguration
-                    {
-                        Kubeconfig = "skip", Base = mockServer?.Urls.First() ?? "http://dontuse.test.localhost:443"
-                    },
+                K8SClientConfiguration = new K8SClientConfiguration
+                {
+                    Kubeconfig = "skip",
+                    Base = mockServer?.Urls.First() ?? "http://dontuse.test.localhost:443"
+                },
                 MavenConfiguration = new MavenConfiguration
                 {
                     // disable for this test
-                    EnableDownload = false, LocalRepository = Path.Combine(baseDir, "m2")
+                    EnableDownload = false,
+                    LocalRepository = Path.Combine(baseDir, "m2")
                 }
             };
         }
@@ -309,8 +348,12 @@ namespace Cézanne.Core.Tests.Cli
             public string Encode(IAnsiConsole console, IEnumerable<IRenderable> renderable)
             {
                 var opts = RenderOptions.Create(console, new Capabilities());
-                return string.Join("\n",
-                    renderable.Select(it => string.Join("", it.Render(opts, 120).Select(it => it.Text))));
+                return string.Join(
+                    "\n",
+                    renderable.Select(it =>
+                        string.Join("", it.Render(opts, 120).Select(it => it.Text))
+                    )
+                );
             }
 
             private class Capabilities : IReadOnlyCapabilities

@@ -29,7 +29,6 @@ namespace Cézanne.Core.Cli
             }
         }
 
-
         private CommandApp _Cli(ITypeRegistrar registrar, string[] args)
         {
             var app = new CommandApp(registrar);
@@ -42,31 +41,40 @@ namespace Cézanne.Core.Cli
 
                 config.UseAssemblyInformationalVersion().SetApplicationName("cezanne");
 
-                config.AddCommand<ApplyCommand>("apply")
+                config
+                    .AddCommand<ApplyCommand>("apply")
                     .WithDescription("Apply/deploy a recipe (set of descriptors).");
-                config.AddCommand<DeleteCommand>("delete")
-                    .WithDescription("Delete a recipe deployment by deleting all related descriptors.");
-                config.AddCommand<ListRecipesCommand>("list-recipes")
+                config
+                    .AddCommand<DeleteCommand>("delete")
+                    .WithDescription(
+                        "Delete a recipe deployment by deleting all related descriptors."
+                    );
+                config
+                    .AddCommand<ListRecipesCommand>("list-recipes")
                     .WithAlias("list-alveoli") // Yupiik Bundlebee interoperability
                     .WithDescription("Lists all found recipes/alveoli from the configuration.");
-                config.AddCommand<InspectCommand>("inspect")
+                config
+                    .AddCommand<InspectCommand>("inspect")
                     .WithDescription("Inspect a recipe, i.e. list the descriptors to apply etc.");
-                config.AddCommand<PlaceholderExtractorCommand>("placeholder-extract")
-                    .WithDescription("Extracts placeholders from a recipe (often for documentation).");
+                config
+                    .AddCommand<PlaceholderExtractorCommand>("placeholder-extract")
+                    .WithDescription(
+                        "Extracts placeholders from a recipe (often for documentation)."
+                    );
             });
             return app;
         }
-
 
         private (Registrar, IServiceCollection) _CreateContainer(string[] args)
         {
             ServiceCollection services = new();
 
-            var level =
-                Enum.Parse<LogLevel>(Environment.GetEnvironmentVariable("CEZANNE_LOG_LEVEL") ?? "Information");
-            services.AddLogging(config => config
-                .AddProvider(new SpectreLoggerProvider(level))
-                .SetMinimumLevel(level));
+            var level = Enum.Parse<LogLevel>(
+                Environment.GetEnvironmentVariable("CEZANNE_LOG_LEVEL") ?? "Information"
+            );
+            services.AddLogging(config =>
+                config.AddProvider(new SpectreLoggerProvider(level)).SetMinimumLevel(level)
+            );
 
             // shared services configuration
             var binder = new ConfigurationBuilder()
@@ -90,9 +98,9 @@ namespace Cézanne.Core.Cli
 
             static string? placeholders(string name, string defaultValue)
             {
-                return Environment.GetEnvironmentVariable(name) ??
-                       Environment.GetEnvironmentVariable(name.ToUpperInvariant().Replace('.', '_')) ??
-                       defaultValue;
+                return Environment.GetEnvironmentVariable(name)
+                    ?? Environment.GetEnvironmentVariable(name.ToUpperInvariant().Replace('.', '_'))
+                    ?? defaultValue;
             }
 
             // services
@@ -123,7 +131,6 @@ namespace Cézanne.Core.Cli
         }
 
         internal sealed class Registrar(IServiceCollection services) : ITypeRegistrar, IDisposable
-
         {
             private ServiceProvider? _container;
 
@@ -131,7 +138,6 @@ namespace Cézanne.Core.Cli
             {
                 _container?.Dispose();
             }
-
 
             public ITypeResolver Build()
             {

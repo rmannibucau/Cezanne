@@ -1,24 +1,33 @@
+using System.Text.Json;
 using Cézanne.Core.Descriptor;
 using Cézanne.Core.Interpolation;
-using System.Text.Json;
 
 namespace Cézanne.Core.Service
 {
     public class ManifestReader(Substitutor _substitutor)
     {
-        public Manifest ReadManifest(string? location, Func<Stream> manifest,
+        public Manifest ReadManifest(
+            string? location,
+            Func<Stream> manifest,
             Func<string, Stream> relativeResolver,
-            string? id)
+            string? id
+        )
         {
             using StreamReader reader = new(manifest());
             var content = _substitutor.Replace(null, null, reader.ReadToEnd().Trim(), id);
-            var mf = JsonSerializer.Deserialize<Manifest>(content, Jsons.Options) ??
-                     throw new ArgumentException($"Invalid manifest descriptor: {content}", nameof(location));
+            var mf =
+                JsonSerializer.Deserialize<Manifest>(content, Jsons.Options)
+                ?? throw new ArgumentException(
+                    $"Invalid manifest descriptor: {content}",
+                    nameof(location)
+                );
 
             if (!string.IsNullOrEmpty(location) && mf.Recipes.Any())
             {
-                foreach (var it in mf.Recipes.SelectMany(it => it.Descriptors ?? [])
-                             .Where(it => it.Location == null) ?? [])
+                foreach (
+                    var it in mf.Recipes.SelectMany(it => it.Descriptors ?? [])
+                        .Where(it => it.Location == null) ?? []
+                )
                 {
                     it.Location = location;
                 }
@@ -48,9 +57,12 @@ namespace Cézanne.Core.Service
             }
         }
 
-        private void _ResolveReferences(string? location, Manifest main,
+        private void _ResolveReferences(
+            string? location,
+            Manifest main,
             Func<string, Stream> relativeResolver,
-            string? id)
+            string? id
+        )
         {
             if (!main.References.Any())
             {
@@ -59,10 +71,19 @@ namespace Cézanne.Core.Service
 
             foreach (var reference in main.References)
             {
-                var loaded = ReadManifest(location,
-                    () => relativeResolver(reference.Path ??
-                                           throw new ArgumentException("No path set in reference", nameof(reference))),
-                    relativeResolver, id);
+                var loaded = ReadManifest(
+                    location,
+                    () =>
+                        relativeResolver(
+                            reference.Path
+                                ?? throw new ArgumentException(
+                                    "No path set in reference",
+                                    nameof(reference)
+                                )
+                        ),
+                    relativeResolver,
+                    id
+                );
                 if (loaded.References.Any())
                 {
                     _ResolveReferences(location, loaded, relativeResolver, id);

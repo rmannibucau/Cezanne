@@ -11,8 +11,10 @@ namespace Cézanne.Core.Tests.Service
         {
             try
             {
-                new RequirementService { BundlebeeVersion = versionAndManifest.Item1 }.CheckRequirements(
-                    versionAndManifest.Item2);
+                new RequirementService
+                {
+                    BundlebeeVersion = versionAndManifest.Item1
+                }.CheckRequirements(versionAndManifest.Item2);
                 return true;
             }
             catch (Exception)
@@ -23,7 +25,8 @@ namespace Cézanne.Core.Tests.Service
 
         private static IEnumerable<TestCaseData> DataSet()
         {
-            yield return new TestCaseData((
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -31,12 +34,16 @@ namespace Cézanne.Core.Tests.Service
                         [
                             new Manifest.Requirement
                             {
-                                MinBundlebeeVersion = null, MaxBundlebeeVersion = null, ForbiddenVersions = []
+                                MinBundlebeeVersion = null,
+                                MaxBundlebeeVersion = null,
+                                ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(true);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(true);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -44,12 +51,16 @@ namespace Cézanne.Core.Tests.Service
                         [
                             new Manifest.Requirement
                             {
-                                MinBundlebeeVersion = null, MaxBundlebeeVersion = "0.9.9", ForbiddenVersions = []
+                                MinBundlebeeVersion = null,
+                                MaxBundlebeeVersion = "0.9.9",
+                                ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(false);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(false);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -57,12 +68,16 @@ namespace Cézanne.Core.Tests.Service
                         [
                             new Manifest.Requirement
                             {
-                                MinBundlebeeVersion = "0.9.9", MaxBundlebeeVersion = null, ForbiddenVersions = []
+                                MinBundlebeeVersion = "0.9.9",
+                                MaxBundlebeeVersion = null,
+                                ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(true);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(true);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -70,12 +85,16 @@ namespace Cézanne.Core.Tests.Service
                         [
                             new Manifest.Requirement
                             {
-                                MinBundlebeeVersion = "1.0.1", MaxBundlebeeVersion = null, ForbiddenVersions = []
+                                MinBundlebeeVersion = "1.0.1",
+                                MaxBundlebeeVersion = null,
+                                ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(false);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(false);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -88,9 +107,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = ["1.0.0"]
                             }
                         ]
-                    }))
-                .Returns(false);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(false);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -103,9 +124,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = ["1.0.*"]
                             }
                         ]
-                    }))
-                .Returns(false);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(false);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -118,9 +141,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = ["1.*.*"]
                             }
                         ]
-                    }))
-                .Returns(false);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(false);
+            yield return new TestCaseData(
+                (
                     "1.0.11",
                     new Manifest
                     {
@@ -133,9 +158,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = ["1.*.*"]
                             }
                         ]
-                    }))
-                .Returns(false);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(false);
+            yield return new TestCaseData(
+                (
                     "1.0.11",
                     new Manifest
                     {
@@ -148,9 +175,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = ["1.*.10"]
                             }
                         ]
-                    }))
-                .Returns(true);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(true);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -163,9 +192,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = ["*.*.*"]
                             }
                         ]
-                    }))
-                .Returns(false);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(false);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -173,12 +204,16 @@ namespace Cézanne.Core.Tests.Service
                         [
                             new Manifest.Requirement
                             {
-                                MinBundlebeeVersion = "1.0.0", MaxBundlebeeVersion = null, ForbiddenVersions = []
+                                MinBundlebeeVersion = "1.0.0",
+                                MaxBundlebeeVersion = null,
+                                ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(true);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(true);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -186,12 +221,16 @@ namespace Cézanne.Core.Tests.Service
                         [
                             new Manifest.Requirement
                             {
-                                MinBundlebeeVersion = "1.0.0", MaxBundlebeeVersion = "0.9.9", ForbiddenVersions = []
+                                MinBundlebeeVersion = "1.0.0",
+                                MaxBundlebeeVersion = "0.9.9",
+                                ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(false);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(false);
+            yield return new TestCaseData(
+                (
                     "1.0.0",
                     new Manifest
                     {
@@ -204,9 +243,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(true);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(true);
+            yield return new TestCaseData(
+                (
                     "1.0.10",
                     new Manifest
                     {
@@ -219,9 +260,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(true);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(true);
+            yield return new TestCaseData(
+                (
                     "1.1.0",
                     new Manifest
                     {
@@ -234,9 +277,11 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(true);
-            yield return new TestCaseData((
+                    }
+                )
+            ).Returns(true);
+            yield return new TestCaseData(
+                (
                     "2.0.0",
                     new Manifest
                     {
@@ -249,8 +294,9 @@ namespace Cézanne.Core.Tests.Service
                                 ForbiddenVersions = []
                             }
                         ]
-                    }))
-                .Returns(false);
+                    }
+                )
+            ).Returns(false);
         }
     }
 }

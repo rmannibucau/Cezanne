@@ -1,5 +1,5 @@
-using Spectre.Console;
 using System.Collections.Concurrent;
+using Spectre.Console;
 
 namespace Cézanne.Core.Cli.Progress
 {
@@ -30,7 +30,8 @@ namespace Cézanne.Core.Cli.Progress
                     {
                         value.Value = percent;
                         return value;
-                    });
+                    }
+                );
             }
         }
     }

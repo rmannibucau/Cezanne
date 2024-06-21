@@ -1,19 +1,22 @@
+using System.IO.Compression;
+using System.Text;
 using Cézanne.Core.Interpolation;
 using Cézanne.Core.Service;
 using Cézanne.Core.Tests.Rule;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.IO.Compression;
-using System.Text;
 
 namespace Cézanne.Core.Tests.Service
 {
     [FixtureLifeCycle(LifeCycle.SingleInstance)]
     public class ArchiveReaderTests : ITempFolder
     {
-        private readonly ArchiveReader reader = new(
-            new Logger<ArchiveReader>(new NullLoggerFactory()),
-            new ManifestReader(new Substitutor(static _ => null, null, null)), null);
+        private readonly ArchiveReader reader =
+            new(
+                new Logger<ArchiveReader>(new NullLoggerFactory()),
+                new ManifestReader(new Substitutor(static _ => null, null, null)),
+                null
+            );
 
         public string? Temp { get; set; }
 
@@ -21,22 +24,25 @@ namespace Cézanne.Core.Tests.Service
         [TempFolder]
         public void Read()
         {
-            var yaml = "apiVersion: v1\n" +
-                       "kind: Service\n" +
-                       "metadata:\n" +
-                       "  name: foo\n" +
-                       "  labels:\n" +
-                       "    app: foo\n" +
-                       "spec:\n" +
-                       "  type: NodePort\n" +
-                       "  ports:\n" +
-                       "   - port: 1234\n" +
-                       "     targetPort: 1234\n" +
-                       "  selector:\n" +
-                       "   app: foo\n";
+            var yaml =
+                "apiVersion: v1\n"
+                + "kind: Service\n"
+                + "metadata:\n"
+                + "  name: foo\n"
+                + "  labels:\n"
+                + "    app: foo\n"
+                + "spec:\n"
+                + "  type: NodePort\n"
+                + "  ports:\n"
+                + "   - port: 1234\n"
+                + "     targetPort: 1234\n"
+                + "  selector:\n"
+                + "   app: foo\n";
 
-            var zipLocation = Path.Combine(Temp ?? throw new ArgumentException("Temp is null", nameof(Temp)),
-                "test.zip");
+            var zipLocation = Path.Combine(
+                Temp ?? throw new ArgumentException("Temp is null", nameof(Temp)),
+                "test.zip"
+            );
 
             using (var zip = ZipFile.Open(zipLocation, ZipArchiveMode.Create))
             {
@@ -44,19 +50,23 @@ namespace Cézanne.Core.Tests.Service
                 zip.CreateEntry("bundlebee/kubernetes/").Open().Close();
                 using (var manifestJson = zip.CreateEntry("bundlebee/manifest.json").Open())
                 {
-                    manifestJson.Write(Encoding.UTF8.GetBytes("{" +
-                                                              "  \"alveoli\":[" +
-                                                              "    {" +
-                                                              "      \"name\": \"test\"," +
-                                                              "      \"descriptors\":[" +
-                                                              "        {" +
-                                                              "          \"name\": \"foo\"," +
-                                                              "          \"location\": \"com.company:alv:1.0.0\"" +
-                                                              "        }" +
-                                                              "      ]" +
-                                                              "    }" +
-                                                              "  ]" +
-                                                              "}"));
+                    manifestJson.Write(
+                        Encoding.UTF8.GetBytes(
+                            "{"
+                                + "  \"alveoli\":["
+                                + "    {"
+                                + "      \"name\": \"test\","
+                                + "      \"descriptors\":["
+                                + "        {"
+                                + "          \"name\": \"foo\","
+                                + "          \"location\": \"com.company:alv:1.0.0\""
+                                + "        }"
+                                + "      ]"
+                                + "    }"
+                                + "  ]"
+                                + "}"
+                        )
+                    );
                 }
 
                 using (var manifestJson = zip.CreateEntry("bundlebee/kubernetes/foo.yaml").Open())

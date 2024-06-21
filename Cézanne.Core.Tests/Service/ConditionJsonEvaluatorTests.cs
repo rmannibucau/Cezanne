@@ -1,8 +1,8 @@
+using System.Text.Json;
 using Cézanne.Core.Descriptor;
 using Cézanne.Core.Service;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Text.Json;
 
 namespace Cézanne.Core.Tests.Service
 {
@@ -15,8 +15,8 @@ namespace Cézanne.Core.Tests.Service
         public bool Eval(string condition, string input)
         {
             var cond =
-                JsonSerializer.Deserialize<Manifest.AwaitCondition>(condition, Jsons.Options) ??
-                throw new ArgumentNullException(nameof(condition));
+                JsonSerializer.Deserialize<Manifest.AwaitCondition>(condition, Jsons.Options)
+                ?? throw new ArgumentNullException(nameof(condition));
             var data = JsonSerializer.Deserialize<JsonElement>(input);
             try
             {
@@ -31,53 +31,53 @@ namespace Cézanne.Core.Tests.Service
         private static IEnumerable<TestCaseData> DataSet()
         {
             yield return new TestCaseData(
-                    "{\"type\":\"JSON_POINTER\",\"pointer\":\"/v\",\"value\":1}",
-                    "{\"v\":1}")
-                .Returns(true);
+                "{\"type\":\"JSON_POINTER\",\"pointer\":\"/v\",\"value\":1}",
+                "{\"v\":1}"
+            ).Returns(true);
             yield return new TestCaseData(
-                    "{\"type\":\"JSON_POINTER\",\"pointer\":\"/v\",\"value\":\"foo\"}",
-                    "{\"v\":\"bar\"}")
-                .Returns(false);
+                "{\"type\":\"JSON_POINTER\",\"pointer\":\"/v\",\"value\":\"foo\"}",
+                "{\"v\":\"bar\"}"
+            ).Returns(false);
             yield return new TestCaseData(
-                    "{\"type\":\"JSON_POINTER\",\"pointer\":\"/v\",\"value\":\"foo\"}",
-                    "{\"v\":\"foo\"}")
-                .Returns(true);
+                "{\"type\":\"JSON_POINTER\",\"pointer\":\"/v\",\"value\":\"foo\"}",
+                "{\"v\":\"foo\"}"
+            ).Returns(true);
             yield return new TestCaseData(
-                    "{\"type\":\"JSON_POINTER\",\"pointer\":\"/v\",\"value\":\"foo\"}",
-                    "{}")
-                .Returns(false);
+                "{\"type\":\"JSON_POINTER\",\"pointer\":\"/v\",\"value\":\"foo\"}",
+                "{}"
+            ).Returns(false);
             yield return new TestCaseData(
-                    "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
-                    "{\"status\":{\"conditions\":[{\"type\":\"Ready\",\"status\":true}]}}")
-                .Returns(true);
+                "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
+                "{\"status\":{\"conditions\":[{\"type\":\"Ready\",\"status\":true}]}}"
+            ).Returns(true);
             yield return new TestCaseData(
-                    "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
-                    "{\"status\":{\"conditions\":[{\"type\":\"Foo\",\"status\":true},{\"type\":\"Ready\",\"status\":true}]}}")
-                .Returns(true);
+                "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
+                "{\"status\":{\"conditions\":[{\"type\":\"Foo\",\"status\":true},{\"type\":\"Ready\",\"status\":true}]}}"
+            ).Returns(true);
             yield return new TestCaseData(
-                    "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
-                    "{\"status\":{\"conditions\":[{\"type\":\"Foo\",\"status\":true},{\"type\":\"Ready\",\"status\":false}]}}")
-                .Returns(false);
+                "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
+                "{\"status\":{\"conditions\":[{\"type\":\"Foo\",\"status\":true},{\"type\":\"Ready\",\"status\":false}]}}"
+            ).Returns(false);
             yield return new TestCaseData(
-                    "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
-                    "{\"status\":{\"conditions\":[{\"type\":\"Foo\",\"status\":true}]}}")
-                .Returns(false);
+                "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
+                "{\"status\":{\"conditions\":[{\"type\":\"Foo\",\"status\":true}]}}"
+            ).Returns(false);
             yield return new TestCaseData(
-                    "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
-                    "{\"status\":{\"conditions\":[{\"type\":\"Foo\",\"status\":true},{\"status\":true}]}}")
-                .Returns(false);
+                "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
+                "{\"status\":{\"conditions\":[{\"type\":\"Foo\",\"status\":true},{\"status\":true}]}}"
+            ).Returns(false);
             yield return new TestCaseData(
-                    "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
-                    "{\"status\":{\"conditions\":[]}}")
-                .Returns(false);
+                "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
+                "{\"status\":{\"conditions\":[]}}"
+            ).Returns(false);
             yield return new TestCaseData(
-                    "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
-                    "{\"status\":{}}")
-                .Returns(false);
+                "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
+                "{\"status\":{}}"
+            ).Returns(false);
             yield return new TestCaseData(
-                    "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
-                    "{}")
-                .Returns(false);
+                "{\"type\":\"STATUS_CONDITION\",\"conditionType\":\"Ready\",\"value\":\"true\"}",
+                "{}"
+            ).Returns(false);
         }
     }
 }

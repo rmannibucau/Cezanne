@@ -18,7 +18,10 @@ namespace Cézanne.Core.Cli.Command
 
         internal class SpectreLogger(LogLevel level, string categoryName) : ILogger
         {
-            private static readonly IDictionary<LogLevel, string> LevelColors = new Dictionary<LogLevel, string>
+            private static readonly IDictionary<LogLevel, string> LevelColors = new Dictionary<
+                LogLevel,
+                string
+            >
             {
                 { LogLevel.Critical, "red" },
                 { LogLevel.Error, "orangered1" },
@@ -28,7 +31,10 @@ namespace Cézanne.Core.Cli.Command
                 { LogLevel.Trace, "default" }
             };
 
-            private static readonly IDictionary<LogLevel, string> LevelNames = new Dictionary<LogLevel, string>
+            private static readonly IDictionary<LogLevel, string> LevelNames = new Dictionary<
+                LogLevel,
+                string
+            >
             {
                 { LogLevel.Critical, " critic" },
                 { LogLevel.Error, "  error" },
@@ -40,15 +46,22 @@ namespace Cézanne.Core.Cli.Command
 
             private readonly string loggerName = categoryName.PadLeft(40, ' ').Truncate(40);
 
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-                Func<TState, Exception?, string> formatter)
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter
+            )
             {
                 if (IsEnabled(logLevel))
                 {
                     var color = LevelColors[logLevel];
                     var levelName = LevelNames[logLevel];
                     var message = formatter(state, exception);
-                    AnsiConsole.MarkupLineInterpolated($"[[[{color}]{levelName}[/]]][[{loggerName}]] {message}");
+                    AnsiConsole.MarkupLineInterpolated(
+                        $"[[[{color}]{levelName}[/]]][[{loggerName}]] {message}"
+                    );
                 }
             }
 
@@ -57,7 +70,8 @@ namespace Cézanne.Core.Cli.Command
                 return level != LogLevel.None && logLevel >= level;
             }
 
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+            public IDisposable? BeginScope<TState>(TState state)
+                where TState : notnull
             {
                 return NullScope.Instance;
             }
@@ -67,9 +81,7 @@ namespace Cézanne.Core.Cli.Command
         {
             public static NullScope Instance { get; } = new();
 
-            public void Dispose()
-            {
-            }
+            public void Dispose() { }
         }
     }
 }

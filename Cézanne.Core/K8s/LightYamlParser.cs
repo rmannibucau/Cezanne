@@ -10,8 +10,12 @@ namespace Cézanne.Core.K8s
             return _Parse(new YamlReader(reader), 0, new LazyList(), _ToResult);
         }
 
-        private object _Parse(YamlReader reader, int prefixLength, LazyList list,
-            Func<LazyList, IDictionary<string, object>?, object> extractor)
+        private object _Parse(
+            YamlReader reader,
+            int prefixLength,
+            LazyList list,
+            Func<LazyList, IDictionary<string, object>?, object> extractor
+        )
         {
             IDictionary<string, object>? objectModel = null;
 
@@ -37,73 +41,84 @@ namespace Cézanne.Core.K8s
                     case '#':
                         continue;
                     case '-':
+                    {
+                        if (firstChar != prefixLength - 2)
                         {
-                            if (firstChar != prefixLength - 2)
-                            {
-                                reader.Line = line; // re-read it in the enclosing context
-                                return extractor(list, objectModel);
-                            }
-
-                            var firstCollectionChar = _FindNextChar(firstChar + 1, line);
-                            if (firstCollectionChar >= line.Length)
-                            {
-                                throw new InvalidOperationException($"Invalid collection on line {lineNumber}");
-                            }
-
-                            if (list.List is null)
-                            {
-                                list.List ??= new List<object>();
-                            }
-
-                            var sep = line.IndexOf(':', firstCollectionChar);
-                            if (sep > 0)
-                            {
-                                // reparse the line as an object
-                                reader.Line = line[..firstChar] + ' ' + line[(firstChar + 1)..];
-                                var listObject = _Parse(reader, prefixLength, list,
-                                    (_, obj) => obj ?? throw new ArgumentNullException(nameof(obj)));
-                                list.List.Add(listObject);
-                            }
-                            else
-                            {
-                                // likely a scalar - parsed as string for now (or empty dict/list for nested objects)
-                                list.List.Add(_ToValue(line, firstCollectionChar));
-                            }
-
-                            break;
+                            reader.Line = line; // re-read it in the enclosing context
+                            return extractor(list, objectModel);
                         }
+
+                        var firstCollectionChar = _FindNextChar(firstChar + 1, line);
+                        if (firstCollectionChar >= line.Length)
+                        {
+                            throw new InvalidOperationException(
+                                $"Invalid collection on line {lineNumber}"
+                            );
+                        }
+
+                        if (list.List is null)
+                        {
+                            list.List ??= new List<object>();
+                        }
+
+                        var sep = line.IndexOf(':', firstCollectionChar);
+                        if (sep > 0)
+                        {
+                            // reparse the line as an object
+                            reader.Line = line[..firstChar] + ' ' + line[(firstChar + 1)..];
+                            var listObject = _Parse(
+                                reader,
+                                prefixLength,
+                                list,
+                                (_, obj) => obj ?? throw new ArgumentNullException(nameof(obj))
+                            );
+                            list.List.Add(listObject);
+                        }
+                        else
+                        {
+                            // likely a scalar - parsed as string for now (or empty dict/list for nested objects)
+                            list.List.Add(_ToValue(line, firstCollectionChar));
+                        }
+
+                        break;
+                    }
                     default:
+                    {
+                        // todo: check it is a valid char?
+                        if (firstChar != prefixLength)
                         {
-                            // todo: check it is a valid char?
-                            if (firstChar != prefixLength)
-                            {
-                                reader.Line = line; // let caller re-read the line, was not belonging to this parsing
-                                return extractor(list, objectModel);
-                            }
-
-                            var sep = line.IndexOf(':');
-                            if (sep < 0)
-                            {
-                                throw new ArgumentException($"No separator on line {lineNumber}");
-                            }
-
-                            objectModel ??= new Dictionary<string, object>();
-
-                            var key = line.Substring(firstChar, sep - firstChar);
-                            var dataStart = _FindNextChar(sep + 1, line);
-                            if (dataStart == line.Length)
-                            {
-                                // object start
-                                var nested = _Parse(reader, prefixLength + 2, new LazyList(), _ToResult);
-                                objectModel[key] = nested;
-                            }
-                            else
-                            {
-                                objectModel[key] = _ToValue(line, dataStart);
-                            }
-
-                            break;
+                            reader.Line = line; // let caller re-read the line, was not belonging to this parsing
+                            return extractor(list, objectModel);
                         }
+
+                        var sep = line.IndexOf(':');
+                        if (sep < 0)
+                        {
+                            throw new ArgumentException($"No separator on line {lineNumber}");
+                        }
+
+                        objectModel ??= new Dictionary<string, object>();
+
+                        var key = line.Substring(firstChar, sep - firstChar);
+                        var dataStart = _FindNextChar(sep + 1, line);
+                        if (dataStart == line.Length)
+                        {
+                            // object start
+                            var nested = _Parse(
+                                reader,
+                                prefixLength + 2,
+                                new LazyList(),
+                                _ToResult
+                            );
+                            objectModel[key] = nested;
+                        }
+                        else
+                        {
+                            objectModel[key] = _ToValue(line, dataStart);
+                        }
+
+                        break;
+                    }
                 }
             }
 
@@ -123,7 +138,10 @@ namespace Cézanne.Core.K8s
                 return ImmutableList<object>.Empty;
             }
 
-            if ((value.StartsWith("\"") && value.EndsWith("\"")) || (value.StartsWith("'") && value.EndsWith("'")))
+            if (
+                (value.StartsWith("\"") && value.EndsWith("\""))
+                || (value.StartsWith("'") && value.EndsWith("'"))
+            )
             {
                 value = value.Substring(1, value.Length - 2);
             }

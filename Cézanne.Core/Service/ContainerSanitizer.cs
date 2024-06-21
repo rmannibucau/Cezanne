@@ -1,7 +1,7 @@
+using System.Text.Json.Nodes;
 using Json.Patch;
 using Json.Pointer;
 using Microsoft.Extensions.Logging;
-using System.Text.Json.Nodes;
 
 namespace Cézanne.Core.Service
 {
@@ -9,8 +9,11 @@ namespace Cézanne.Core.Service
     {
         public bool CanSanitizeCpuResource(string kindLowerCased)
         {
-            return "cronjobs" == kindLowerCased || "deployments" == kindLowerCased ||
-                   "daemonsets" == kindLowerCased || "pods" == kindLowerCased || "jobs" == kindLowerCased;
+            return "cronjobs" == kindLowerCased
+                || "deployments" == kindLowerCased
+                || "daemonsets" == kindLowerCased
+                || "pods" == kindLowerCased
+                || "jobs" == kindLowerCased;
         }
 
         public JsonObject DropCpuResources(string kind, JsonObject desc)
@@ -30,11 +33,18 @@ namespace Cézanne.Core.Service
 
             return _ReplaceIfPresent(
                 _ReplaceIfPresent(desc, containersParentPointer, "initContainers", _DropNullCpu),
-                containersParentPointer, "containers", _DropNullCpu);
+                containersParentPointer,
+                "containers",
+                _DropNullCpu
+            );
         }
 
-        private JsonObject _ReplaceIfPresent(JsonObject source, string parentPtr, string name,
-            Func<JsonArray, JsonArray> fn)
+        private JsonObject _ReplaceIfPresent(
+            JsonObject source,
+            string parentPtr,
+            string name,
+            Func<JsonArray, JsonArray> fn
+        )
         {
             var ptr = JsonPointer.Parse(string.Join('/', parentPtr, name));
             try
@@ -65,7 +75,6 @@ namespace Cézanne.Core.Service
                 return source;
             }
         }
-
 
         private JsonObject _DropNullCpu(JsonObject container)
         {
