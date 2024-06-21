@@ -548,31 +548,28 @@ namespace Cézanne.Core.Service
         {
             if (it.Location is not null)
             {
-                var recipe =
-                    (manifest.Recipes ?? [])
-                        .Where(recipe => recipe.Name == it.Name)
-                        .FirstOrDefault((Manifest.Recipe?)null)
-                    ?? throw new ArgumentException(
-                        $"Didn't find recipe '{it.Name}'",
-                        nameof(manifest)
-                    );
+                var recipe = (manifest.Recipes ?? [])
+                    .Where(recipe => recipe.Name == it.Name)
+                    .FirstOrDefault((Manifest.Recipe?)null);
 
-                async Task result()
+                if (recipe is not null)
                 {
-                    await onRecipe(
-                        new VisitContext(
-                            manifest,
-                            recipe,
-                            currentPatches,
-                            currentPlaceholders,
-                            currentExcludes,
-                            cache,
-                            id
-                        )
-                    );
+                    async Task result()
+                    {
+                        await onRecipe(
+                            new VisitContext(
+                                manifest,
+                                recipe,
+                                currentPatches,
+                                currentPlaceholders,
+                                currentExcludes,
+                                cache,
+                                id
+                            )
+                        );
+                    }
+                    return result;
                 }
-                ;
-                return result;
             }
 
             var name =
@@ -593,7 +590,6 @@ namespace Cézanne.Core.Service
                     )
                 );
             }
-            ;
             return resultWithLookup;
         }
 

@@ -130,7 +130,12 @@ namespace Cézanne.Core.Cli.Command
                         if (existing is not null)
                         {
                             descriptorNode.AddNode(
-                                new Panel(new JsonText(existing.Content))
+                                new Panel(
+                                    existing.Content.StartsWith('{')
+                                    || existing.Content.StartsWith('[')
+                                        ? new JsonText(existing.Content)
+                                        : new Text(existing.Content)
+                                )
                                     .Header("Content")
                                     .Collapse()
                                     .RoundedBorder()
