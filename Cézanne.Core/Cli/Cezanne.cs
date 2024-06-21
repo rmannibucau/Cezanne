@@ -43,9 +43,16 @@ namespace Cézanne.Core.Cli
                 config.UseAssemblyInformationalVersion().SetApplicationName("cezanne");
 
                 config.AddCommand<ApplyCommand>("apply")
-                    .WithDescription("Apply/deploy a set of descriptors from a root one.");
+                    .WithDescription("Apply/deploy a recipe (set of descriptors).");
                 config.AddCommand<DeleteCommand>("delete")
-                    .WithDescription("Delete an alveolus deployment by deleting all related descriptors.");
+                    .WithDescription("Delete a recipe deployment by deleting all related descriptors.");
+                config.AddCommand<ListRecipesCommand>("list-recipes")
+                    .WithAlias("list-alveoli") // Yupiik Bundlebee interoperability
+                    .WithDescription("Lists all found recipes/alveoli from the configuration.");
+                config.AddCommand<InspectCommand>("inspect")
+                    .WithDescription("Inspect a recipe, i.e. list the descriptors to apply etc.");
+                config.AddCommand<PlaceholderExtractorCommand>("placeholder-extract")
+                    .WithDescription("Extracts placeholders from a recipe (often for documentation).");
             });
             return app;
         }
@@ -108,6 +115,9 @@ namespace Cézanne.Core.Cli
             // commands
             services.AddSingleton<ApplyCommand>();
             services.AddSingleton<DeleteCommand>();
+            services.AddSingleton<ListRecipesCommand>();
+            services.AddSingleton<InspectCommand>();
+            services.AddSingleton<PlaceholderExtractorCommand>();
 
             return (new Registrar(services), services);
         }

@@ -3,6 +3,7 @@ using Cézanne.Core.Tests.Rule;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Console;
 
 namespace Cézanne.Core.Tests.Maven
 {
@@ -50,7 +51,13 @@ namespace Cézanne.Core.Tests.Maven
         [TempFolder]
         public async Task Download()
         {
-            var mockServer = WebApplication.Create();
+            var mockServerBuilder = WebApplication.CreateBuilder();
+            mockServerBuilder.Logging.AddSimpleConsole(o =>
+            {
+                o.SingleLine = true;
+                o.ColorBehavior = LoggerColorBehavior.Disabled;
+            });
+            var mockServer = mockServerBuilder.Build();
             mockServer.Urls.Add("http://127.0.0.1:0");
             mockServer.MapGet("/io/yupiik/bundlebee/test/1.2.3/test-1.2.3.jar", () => "worked");
             await mockServer.StartAsync();

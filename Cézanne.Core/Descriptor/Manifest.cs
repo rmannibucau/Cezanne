@@ -217,6 +217,9 @@ namespace Cézanne.Core.Descriptor
                 "If not set, `interpolateAlveoli` flag from the manifest.")]
             public bool? InterpolateDescriptors { get; set; }
 
+            [Description("Optional description for `list-recipes` command.")]
+            public string? Description { get; set; }
+
             [Description(
                 "Name of the recipe. It must be unique accross the whole classpath. " +
                 "Using maven style identifier, it is recommended to name it " +

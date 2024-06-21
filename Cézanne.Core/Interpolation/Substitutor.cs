@@ -4,6 +4,7 @@ using Cézanne.Core.Maven;
 using Cézanne.Core.Runtime;
 using HandlebarsDotNet;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Configuration;
@@ -19,11 +20,7 @@ namespace Cézanne.Core.Interpolation
 {
     // probably not the best bet but has some history in Yupiik bundlebee and minimum is to inherit from this behavior
     // todo: enhance to behave more as a c# interpolation
-    public sealed class Substitutor(
-        [FromKeyedServices("cezannePlaceholderLookupCallback")]
-        Func<string, string?, string?> lookup,
-        K8SClient? k8s,
-        MavenService? maven)
+    public sealed class Substitutor
     {
         private const char Escape = '\\';
         private const string Prefix = "{{";
@@ -34,6 +31,39 @@ namespace Cézanne.Core.Interpolation
 
         [ThreadStatic]
         private static IDictionary<string, string> contextualPlaceholders = ImmutableDictionary<string, string>.Empty;
+
+        private readonly K8SClient? _K8s;
+
+        private readonly Func<string?, string, string?, string?> _Lookup;
+        private readonly MavenService? _Maven;
+
+        public readonly ConcurrentDictionary<string, IList<Action<string, string?, string?>>> LookupListeners = new();
+
+        public Substitutor(
+            [FromKeyedServices("cezannePlaceholderLookupCallback")]
+            Func<string, string?, string?> lookup,
+            K8SClient? k8s,
+            MavenService? maven)
+        {
+            _K8s = k8s;
+            _Maven = maven;
+
+            _Lookup = (id, key, defaultValue) =>
+            {
+                var resolved = lookup(key, defaultValue);
+
+                var listeners = id is not null && LookupListeners.TryGetValue(id, out var ls) ? ls : [];
+                if (listeners.Count > 0)
+                {
+                    foreach (var listener in listeners)
+                    {
+                        listener(key, defaultValue, resolved);
+                    }
+                }
+
+                return resolved;
+            };
+        }
 
         public Substitutor(Func<string, string?> lookup, K8SClient? k8s, MavenService? maven) : this(
             (key, _) => lookup(key), k8s, maven)
@@ -145,12 +175,13 @@ namespace Cézanne.Core.Interpolation
         {
             var hb = Handlebars.Create();
 
-            HandlebarsHelper base64 = (output, context, args) =>
-                Convert.ToBase64String(Encoding.UTF8.GetBytes((string)args[1]));
             using (hb.Configure())
             {
-                hb.RegisterHelper("base64", base64);
-                hb.RegisterHelper("base64Url", base64); // not accurate, FIXME
+                hb.RegisterHelper("base64",
+                    (output, context, args) => Convert.ToBase64String(Encoding.UTF8.GetBytes((string)args[1])));
+                hb.RegisterHelper("base64Url", (output, context, args) => Convert
+                    .ToBase64String(Encoding.UTF8.GetBytes((string)args[1]))
+                    .Replace('+', '-').Replace('/', '_').Replace("\n", "").Replace("=", ""));
                 // todo: register fallback helper doing a standard substitution for strings to reuse all built-in subs
             }
 
@@ -174,30 +205,66 @@ namespace Cézanne.Core.Interpolation
             } ?? "";
         }
 
-        private string? _DoLookup(Manifest.Recipe? alveolus, LoadedDescriptor? desc, string varName,
-            string? varDefaultValue, string? id)
+        private string? _DoLookup(
+            Manifest.Recipe? alveolus, LoadedDescriptor? desc,
+            string varName, string? varDefaultValue, string? id)
         {
+            var lookup1 = _DefaultLookups(alveolus, desc, varName, id);
+            if (lookup1 is not null)
+            {
+                return lookup1;
+            }
+
+            var lookup2 = _Lookup(id, varName, varDefaultValue);
+            if (lookup2 is not null)
+            {
+                return lookup2;
+            }
+
             try
             {
-                return _DefaultLookups(alveolus, desc, varName, id) ??
-                       lookup(varName, varDefaultValue) ?? varDefaultValue;
+                if (SkipConfiguration) // we already checked it was not filled so skip
+                {
+                    return null;
+                }
+
+                NameValueCollection? nvc;
+                try
+                {
+                    nvc = ConfigurationManager.GetSection("cezanne") as NameValueCollection;
+                }
+                catch (ConfigurationErrorsException)
+                {
+                    try
+                    {
+                        nvc = ConfigurationManager.AppSettings;
+                    }
+                    catch (ConfigurationErrorsException)
+                    {
+                        // theorically would need to be "locked" but in practise it does not change much
+                        SkipConfiguration = true;
+                        return null;
+                    }
+                }
+
+                return nvc?[varName] ?? varDefaultValue;
             }
             catch (Exception)
             {
-                if (varDefaultValue != null)
+                if (varDefaultValue is null)
                 {
-                    return varDefaultValue;
+                    throw;
                 }
-
-                throw;
             }
+
+            return varDefaultValue;
         }
 
         private string? _DefaultLookups(Manifest.Recipe? recipe, LoadedDescriptor? desc, string varName, string? id)
         {
             return varName switch
             {
-                "bundlebee-kubernetes-namespace" => k8s?.DefaultNamespace ?? "default",
+                "bundlebee-kubernetes-namespace" => _K8s?.DefaultNamespace ?? "default",
                 "timestamp" => (DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds.ToString(CultureInfo
                     .InvariantCulture),
                 "timestampSec" => (DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds.ToString(CultureInfo
@@ -297,6 +364,15 @@ namespace Cézanne.Core.Interpolation
                     Convert.FromBase64String(placeholder["bundlebee-base64-decode:".Length..]));
             }
 
+            if (placeholder.StartsWith("bundlebee-base64url-decode:"))
+            {
+                var value = placeholder["bundlebee-base64url-decode:".Length..];
+                return Encoding.UTF8.GetString(
+                    Convert.FromBase64String(value
+                        .Replace('-', '+').Replace('_', '/')
+                        .PadRight(value.Length + ((4 - (value.Length % 4)) % 4), '=')));
+            }
+
             if (placeholder.StartsWith("bundlebee-json-inline-file:"))
             {
                 var path = placeholder["bundlebee-json-inline-file:".Length..];
@@ -371,6 +447,8 @@ namespace Cézanne.Core.Interpolation
                 return encoding switch
                 {
                     "base64" => Convert.ToBase64String(value),
+                    "base64url" => Convert.ToBase64String(value).Replace('+', '-').Replace('/', '_').Replace("\n", "")
+                        .Replace("=", ""),
                     _ => throw new ArgumentException($"Unknown encoding '{encoding}'")
                 };
             }
@@ -402,17 +480,17 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("kubeconfig.cluster.") && placeholder.EndsWith(".ip"))
             {
-                if (k8s == null)
+                if (_K8s == null)
                 {
                     return null;
                 }
 
                 var name = placeholder["kubeconfig.cluster.".Length..(placeholder.Length - ".ip".Length)];
-                var url = k8s.KubeConfig == null
-                    ? k8s.Base
-                    : k8s.KubeConfig.Clusters?
+                var url = _K8s.KubeConfig == null
+                    ? _K8s.Base
+                    : _K8s.KubeConfig.Clusters?
                         .FirstOrDefault(it => it.Name == name,
-                            new KubeConfig.NamedCluster { Cluster = new KubeConfig.Cluster { Server = k8s.Base } })
+                            new KubeConfig.NamedCluster { Cluster = new KubeConfig.Cluster { Server = _K8s.Base } })
                         .Cluster?.Server;
                 return new Uri(url ?? "http://localhost:8080").Host;
             }
@@ -438,39 +516,15 @@ namespace Cézanne.Core.Interpolation
 
             if (placeholder.StartsWith("bundlebee-maven-server-username:"))
             {
-                return maven?.FindMavenServer(placeholder["bundlebee-maven-server-username:".Length..])?.Username;
+                return _Maven?.FindMavenServer(placeholder["bundlebee-maven-server-username:".Length..])?.Username;
             }
 
             if (placeholder.StartsWith("bundlebee-maven-server-password:"))
             {
-                return maven?.FindMavenServer(placeholder["bundlebee-maven-server-password:".Length..])?.Password;
+                return _Maven?.FindMavenServer(placeholder["bundlebee-maven-server-password:".Length..])?.Password;
             }
 
-            if (SkipConfiguration) // we already checked it was not filled so skip
-            {
-                return null;
-            }
-
-            NameValueCollection? nvc;
-            try
-            {
-                nvc = ConfigurationManager.GetSection("cezanne") as NameValueCollection;
-            }
-            catch (ConfigurationErrorsException)
-            {
-                try
-                {
-                    nvc = ConfigurationManager.AppSettings;
-                }
-                catch (ConfigurationErrorsException)
-                {
-                    SkipConfiguration =
-                        true; // theorically would need to be "locked" but in practise it does not change much
-                    return null;
-                }
-            }
-
-            return nvc?[placeholder];
+            return null;
         }
 
         private string? _FindKubernetesValue(string key, string sep)
@@ -509,7 +563,7 @@ namespace Cézanne.Core.Interpolation
             do
             {
                 iterations++;
-                using var result = k8s
+                using var result = _K8s
                     ?.SendAsync(HttpMethod.Get, $"/api/v1/namespaces/{namespaceValue}/serviceaccounts/{account}")
                     .GetAwaiter()
                     .GetResult();
@@ -529,7 +583,7 @@ namespace Cézanne.Core.Interpolation
                 {
                     var selectedSecret =
                         objs.First(it => it["name"]?.ToString().StartsWith(secretPrefix) ?? false);
-                    using var secretResponse = k8s?.SendAsync(HttpMethod.Get,
+                    using var secretResponse = _K8s?.SendAsync(HttpMethod.Get,
                             $"/api/v1/namespaces/{namespaceValue}/serviceaccounts/{selectedSecret["name"]}")
                         .GetAwaiter()
                         .GetResult();

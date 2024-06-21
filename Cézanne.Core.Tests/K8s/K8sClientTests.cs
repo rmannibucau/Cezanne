@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Console;
 using System.Collections.Immutable;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
@@ -18,7 +19,13 @@ namespace Cézanne.Core.Tests.K8s
         [Test]
         public async Task CallApi()
         {
-            var mockServer = WebApplication.Create();
+            var mockServerBuilder = WebApplication.CreateBuilder();
+            mockServerBuilder.Logging.AddSimpleConsole(o =>
+            {
+                o.SingleLine = true;
+                o.ColorBehavior = LoggerColorBehavior.Disabled;
+            });
+            var mockServer = mockServerBuilder.Build();
             mockServer.Urls.Add("http://127.0.0.1:0");
             mockServer.MapGet("/test", () => "mock");
             mockServer.Start();
@@ -39,7 +46,13 @@ namespace Cézanne.Core.Tests.K8s
             var logProvider = new InMemoryLogProvider();
             using ILoggerFactory loggerFactory = new LoggerFactory([logProvider]);
 
-            var mockServer = WebApplication.Create();
+            var mockServerBuilder = WebApplication.CreateBuilder();
+            mockServerBuilder.Logging.AddSimpleConsole(o =>
+            {
+                o.SingleLine = true;
+                o.ColorBehavior = LoggerColorBehavior.Disabled;
+            });
+            var mockServer = mockServerBuilder.Build();
             mockServer.Urls.Add("http://127.0.0.1:0");
             mockServer.Start();
 

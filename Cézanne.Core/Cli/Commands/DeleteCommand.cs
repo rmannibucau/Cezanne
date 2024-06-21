@@ -35,7 +35,7 @@ namespace Cézanne.Core.Cli.Command
                     var cache = archiveReader.NewCache();
                     var progress = new ProgressHandler(ctx).OnProgress;
                     var recipes =
-                        await recipeHandler.FindRootRecipes(settings.From, settings.Manifest, settings.Alveolus, id,
+                        await recipeHandler.FindRootRecipes(settings.From, settings.Manifest, settings.Recipe, id,
                             progress);
 
                     IList<LoadedDescriptor> toDelete = new List<LoadedDescriptor>();
@@ -182,15 +182,14 @@ namespace Cézanne.Core.Cli.Command
         public class Settings : CommandSettings
         {
             [Description(
-                "Alveolus name to deploy. When set to `auto`, it will deploy all manifests found in the classpath. " +
-                "If you set manifest option, alveolus is set to `auto` and there is a single alveolus in it, " +
-                "this will default to it instead of using classpath deployment.")]
-            [CommandOption("-a|--alveolus")]
+                "Recipe/Alveolus name to undeploy. When set to `auto`, it will look through all available manifests found in the from location. " +
+                "If you set manifest option, alveolus is set to `auto` and there is a single alveolus in it, this will default to it.")]
+            [CommandOption("-a|-r|--alveolus|--recipe")]
             [DefaultValue("auto")]
-            public string? Alveolus { get; set; }
+            public string? Recipe { get; set; }
 
             [Description(
-                "Manifest to load to start to deploy (a file path or inline). This optional setting mainly enables to use dependencies easily. " +
+                "Manifest to load to start to undeploy (a file path or inline). This optional setting mainly enables to use dependencies easily. " +
                 "Ignored if set to `skip`.")]
             [CommandOption("-m|--manifest")]
             [DefaultValue("skip")]

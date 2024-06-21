@@ -1,25 +1,16 @@
 using Cézanne.Core.Descriptor;
-using System.Text.Encodings.Web;
+using Cézanne.Core.Service;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 
 namespace Cézanne.Core.Tests.Descriptor
 {
     public class ManifestTests
     {
-        private readonly JsonSerializerOptions? _options = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // UTF-8
-            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
-        };
-
         [TestCaseSource(nameof(FromJsonDataSet))]
         public Manifest? FromJson(string json)
         {
-            return JsonSerializer.Deserialize<Manifest>(json, _options);
+            return JsonSerializer.Deserialize<Manifest>(json, Jsons.Options);
         }
 
         private static IEnumerable<TestCaseData> FromJsonDataSet()

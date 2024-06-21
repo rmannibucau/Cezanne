@@ -142,6 +142,15 @@ namespace Cézanne.Core.Tests.Interpolation
         }
 
         [Test]
+        public void Base64UrlDecode()
+        {
+            Assert.That(
+                _SimpleReplacement(
+                    "{{bundlebee-base64url-decode:aHR0cHM6Ly9ybWFubmlidWNhdS5naXRodWIuaW8vQ2V6YW5uZS8}}"),
+                Is.EqualTo("https://rmannibucau.github.io/Cezanne/"));
+        }
+
+        [Test]
         public async Task Namespace()
         {
             using NullLoggerFactory loggreFactory = new();

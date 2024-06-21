@@ -434,7 +434,7 @@ namespace Cézanne.Core.Service
         {
             if (manifest is not null and not "skip")
             {
-                return _ReadManifest(manifest, id);
+                return await Task.FromResult(ReadManifest(manifest, id));
             }
 
             if (from is null or "auto")
@@ -464,7 +464,7 @@ namespace Cézanne.Core.Service
         {
             if (manifest is not null && manifest != "skip")
             {
-                var mf = _ReadManifest(manifest, id);
+                var mf = ReadManifest(manifest, id);
                 if (!mf.Recipes.Any())
                 {
                     throw new InvalidOperationException("No recipe in manifest");
@@ -472,7 +472,7 @@ namespace Cézanne.Core.Service
 
                 var recipeName = recipe == "auto" && mf.Recipes.Count() == 1 ? mf.Recipes.First().Name : recipe;
                 var selected = mf.Recipes.Where(it => it.Name == recipeName).First();
-                return [new RecipeContext(mf, selected)];
+                return await Task.FromResult<IEnumerable<RecipeContext>>([new RecipeContext(mf, selected)]);
             }
 
             if (from is null)
@@ -496,7 +496,7 @@ namespace Cézanne.Core.Service
             return [new RecipeContext(archive.Manifest, selectedRecipe)];
         }
 
-        private Manifest _ReadManifest(string manifest, string? id)
+        public Manifest ReadManifest(string manifest, string? id)
         {
             if (manifest.StartsWith('{'))
             {

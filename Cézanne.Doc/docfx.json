@@ -13,6 +13,9 @@
     "resource": [
       {
         "files": "**/generated/**/*.json"
+      },
+      {
+        "files": "**/images/*.png"
       }
     ],
     "globalMetadata": {
@@ -20,6 +23,7 @@
       "_appName": "Cézanne",
       "_enableSearch": true,
       "_appFooter": "<span>Made with love by <a href=\"https://x.com/rmannibucau\" target=\"_blank\">@rmannibucau</a> using docfx.</span>",
+      "_appLogoPath": "images/logo.png",
       "pdf": false
     },
     "sitemap": {
