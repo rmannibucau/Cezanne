@@ -1,0 +1,4 @@
+html[data-bs-theme="light"] img#logo {
+  background-color: lightskyblue;
+  border-radius: 3px;
+}
