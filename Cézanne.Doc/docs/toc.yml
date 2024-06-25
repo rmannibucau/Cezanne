@@ -6,5 +6,7 @@
   href: configuration.md
 - name: Commands
   href: commands/index.md
+- name: Completion
+  href: completion.md
 - name: Developers
   href: developers.md

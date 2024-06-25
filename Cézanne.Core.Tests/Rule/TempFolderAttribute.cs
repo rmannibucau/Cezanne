@@ -13,9 +13,12 @@ namespace Cézanne.Core.Tests.Rule
                 && test.Method?.GetCustomAttributes<TempFolderAttribute>(false).Length > 0
             )
             {
+                var name = test.FullName.Contains('(')
+                    ? test.FullName[0..test.FullName.IndexOf('(')]
+                    : test.FullName;
                 tempFolder.Temp = Path.Combine(
                     Path.GetTempPath(),
-                    $"{test.FullName}-{(test as Test)!.Seed}-{new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds()}"
+                    $"{name}-{(test as Test)!.Seed}-{new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds()}"
                 );
                 Directory.CreateDirectory(tempFolder.Temp);
             }

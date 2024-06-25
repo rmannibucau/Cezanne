@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using Cézanne.Core.Cli.Completable;
 using Cézanne.Core.Descriptor;
 using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
@@ -23,8 +23,18 @@ namespace Cézanne.Core.Cli.Command
             recipeHandler,
             "Inspecting",
             "inspected"
-        )
+        ),
+            ICompletable
     {
+        public async Task<IEnumerable<string>> CompleteOptionAsync(
+            string option,
+            IList<string> args,
+            int currentWord
+        )
+        {
+            return await Task.FromResult(ImmutableList<string>.Empty);
+        }
+
         protected override int AfterCollection(
             string id,
             Settings settings,

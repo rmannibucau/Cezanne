@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Net;
 using System.Text.Json.Nodes;
 using Cézanne.Core.Cli.Async;
+using Cézanne.Core.Cli.Completable;
 using Cézanne.Core.Cli.Progress;
 using Cézanne.Core.K8s;
 using Cézanne.Core.Runtime;
@@ -19,7 +20,7 @@ namespace Cézanne.Core.Cli.Command
         ArchiveReader archiveReader,
         RecipeHandler recipeHandler,
         ConditionAwaiter conditionAwaiter
-    ) : AsyncCommand<DeleteCommand.Settings>
+    ) : AsyncCommand<DeleteCommand.Settings>, ICompletable
     {
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {

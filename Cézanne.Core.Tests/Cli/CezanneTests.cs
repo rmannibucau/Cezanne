@@ -18,6 +18,59 @@ namespace Cézanne.Core.Tests.Cli
         public string? Temp { get; set; }
 
         [Test]
+        [Sequential]
+        [TempFolder]
+        public void CompletionBash(
+            [Values(
+                [
+                    "cezanne ",
+                    "cezanne l",
+                    "cezanne del",
+                    "cezanne apply ",
+                    "cezanne apply --chain ",
+                    "cezanne apply --chain t",
+                    "cezanne placeholder-extract --o",
+                    "cezanne placeholder-extract --output-type "
+                ]
+            )]
+                string command,
+            [Values([8, 8, 10, 14, 21, 22, 30, 41])] int position,
+            [Values(
+                [
+                    "apply\ndelete\ninspect\nlist-recipes\nplaceholder-extract\n",
+                    "apply\ndelete\ninspect\nlist-recipes\nplaceholder-extract\n", // the completion script will filter but we completed the commands
+                    "apply\ndelete\ninspect\nlist-recipes\nplaceholder-extract\n",
+                    "--alveolus\n--await-timeout\n--chain\n--dry-run\n--excluded-descriptors\n--excluded-locations\n--field-validation\n--from\n--log-descriptors\n--manifest\n--recipe\n--update-statefulset-spec-attributes\n-a\n-f\n-m\n-r\n",
+                    "true\nfalse\n",
+                    "true\nfalse\n",
+                    "--alveolus\n--asciidoc\n--completion\n--descriptions\n--descriptor\n--dump\n--fail-on-invalid\n--from\n--ignored-placeholders\n--json\n--manifest\n--markdown\n--output-type\n--properties\n--recipe\n-a\n-d\n-e\n-f\n-m\n-o\n-r\n-t\n-x\n",
+                    "ARGOCD\nCONSOLE\nFILE\nLOG\n"
+                ]
+            )]
+                string completion
+        )
+        {
+            var (baseDir, _, _) = _PrepareLayout();
+            var stdout = Console.Out;
+            var output = new StringWriter();
+            try
+            {
+                Console.SetOut(output);
+
+                _Cezanne(baseDir)
+                    .Run(["completion", "bash", "--position", position.ToString(), command]);
+
+                output.Close();
+                var result = output.ToString().Replace("\r\n", "\n");
+                Assert.That(result, Is.EqualTo(completion));
+            }
+            finally
+            {
+                Console.SetOut(stdout);
+            }
+        }
+
+        [Test]
         [TempFolder]
         public void PlaceholderExtract()
         {
@@ -30,7 +83,6 @@ namespace Cézanne.Core.Tests.Cli
                 "# descriptions\n\nmy.custom.value=Main placeholder.\nother.value=Some other value.\n"
             );
 
-            AnsiConsole.Record();
             _Cezanne(baseDir)
                 .Run(
                     [

@@ -4,6 +4,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Cézanne.Core.Cli.Async;
+using Cézanne.Core.Cli.Completable;
 using Cézanne.Core.Cli.Progress;
 using Cézanne.Core.K8s;
 using Cézanne.Core.Service;
@@ -22,7 +23,7 @@ namespace Cézanne.Core.Cli.Command
         RecipeHandler recipeHandler,
         ConditionAwaiter conditionAwaiter,
         ContainerSanitizer sanitizer
-    ) : AsyncCommand<ApplyCommand.Settings>
+    ) : AsyncCommand<ApplyCommand.Settings>, ICompletable
     {
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {

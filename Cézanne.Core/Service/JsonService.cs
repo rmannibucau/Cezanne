@@ -75,9 +75,9 @@ namespace Cézanne.Core.Service
     [JsonSerializable(typeof(JsonValue))]
     [JsonSerializable(typeof(JsonPatch))]
     // commands
-    [JsonSerializable(typeof(PlaceholderExtractorCommand.JsonModel))]
-    [JsonSerializable(typeof(PlaceholderExtractorCommand.JsonItemModel))]
-    [JsonSerializable(typeof(PlaceholderExtractorCommand.ArgoCdJsonItemModel))]
+    [JsonSerializable(typeof(PlaceholderExtractCommand.JsonModel))]
+    [JsonSerializable(typeof(PlaceholderExtractCommand.JsonItemModel))]
+    [JsonSerializable(typeof(PlaceholderExtractCommand.ArgoCdJsonItemModel))]
     [JsonSerializable(typeof(ListRecipesCommand.ItemsWrapper))]
     public partial class CezanneJsonContext : JsonSerializerContext { }
 }

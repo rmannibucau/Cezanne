@@ -57,10 +57,20 @@ namespace Cézanne.Core.Cli
                     .AddCommand<InspectCommand>("inspect")
                     .WithDescription("Inspect a recipe, i.e. list the descriptors to apply etc.");
                 config
-                    .AddCommand<PlaceholderExtractorCommand>("placeholder-extract")
+                    .AddCommand<PlaceholderExtractCommand>("placeholder-extract")
                     .WithDescription(
                         "Extracts placeholders from a recipe (often for documentation)."
                     );
+
+                config.AddBranch(
+                    "completion",
+                    conf =>
+                    {
+                        conf.HideBranch();
+                        conf.AddCommand<BashCompletionCommand>("bash");
+                        conf.AddCommand<PowershellCompletionCommand>("powershell");
+                    }
+                );
             });
             return app;
         }
@@ -104,6 +114,7 @@ namespace Cézanne.Core.Cli
             }
 
             // services
+            services.AddSingleton(typeof(IServiceCollection), services);
             services.AddKeyedSingleton("cezannePlaceholderLookupCallback", placeholders);
             services.AddSingleton(k8s);
             services.AddSingleton(maven);
@@ -122,10 +133,12 @@ namespace Cézanne.Core.Cli
 
             // commands
             services.AddSingleton<ApplyCommand>();
+            services.AddSingleton<BashCompletionCommand>();
+            services.AddSingleton<PowershellCompletionCommand>();
             services.AddSingleton<DeleteCommand>();
-            services.AddSingleton<ListRecipesCommand>();
             services.AddSingleton<InspectCommand>();
-            services.AddSingleton<PlaceholderExtractorCommand>();
+            services.AddSingleton<ListRecipesCommand>();
+            services.AddSingleton<PlaceholderExtractCommand>();
 
             return (new Registrar(services), services);
         }
@@ -141,7 +154,12 @@ namespace Cézanne.Core.Cli
 
             public ITypeResolver Build()
             {
+                var container = _container;
                 _container ??= services.BuildServiceProvider();
+                if (_container != container)
+                {
+                    RegisterInstance(typeof(IServiceProvider), _container);
+                }
                 return new TypeResolver(_container);
             }
 

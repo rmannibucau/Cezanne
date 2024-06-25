@@ -1,6 +1,8 @@
+using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
+using Cézanne.Core.Cli.Completable;
 using Cézanne.Core.Cli.Progress;
 using Cézanne.Core.Descriptor;
 using Cézanne.Core.Service;
@@ -11,8 +13,33 @@ using Spectre.Console.Cli;
 namespace Cézanne.Core.Cli.Command
 {
     public class ListRecipesCommand(ILogger<ListRecipesCommand> logger, RecipeHandler recipeHandler)
-        : AsyncCommand<ListRecipesCommand.Settings>
+        : AsyncCommand<ListRecipesCommand.Settings>,
+            ICompletable
     {
+        public async Task<IEnumerable<string>> CompleteOptionAsync(
+            string option,
+            IList<string> args,
+            int currentWordIndex
+        )
+        {
+            return await Task.FromResult<IList<string>>(
+                option switch
+                {
+                    "-o"
+                    or "--output"
+                        => new List<string>
+                        {
+                            "logger",
+                            "logger.json",
+                            args[currentWordIndex].Length == 0
+                                ? "output.json"
+                                : args[currentWordIndex]
+                        },
+                    _ => ImmutableList<string>.Empty,
+                }
+            );
+        }
+
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
             var id = Guid.NewGuid().ToString();

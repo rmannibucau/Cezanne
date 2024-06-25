@@ -1,8 +1,10 @@
+using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Cézanne.Core.Cli.Completable;
 using Cézanne.Core.Interpolation;
 using Cézanne.Core.Service;
 using Microsoft.Extensions.Logging;
@@ -11,8 +13,9 @@ using Spectre.Console.Cli;
 
 namespace Cézanne.Core.Cli.Command
 {
-    public class PlaceholderExtractorCommand
-        : CollectingCommand<PlaceholderExtractorCommand, PlaceholderExtractorCommand.Settings>
+    public class PlaceholderExtractCommand
+        : CollectingCommand<PlaceholderExtractCommand, PlaceholderExtractCommand.Settings>,
+            ICompletable
     {
         [TypeConverter(typeof(OutputTypeConverter))]
         public enum OutputType
@@ -32,11 +35,11 @@ namespace Cézanne.Core.Cli.Command
             ARGOCD
         }
 
-        private readonly ILogger<PlaceholderExtractorCommand> _logger;
+        private readonly ILogger<PlaceholderExtractCommand> _logger;
         private readonly Substitutor _substitutor;
 
-        public PlaceholderExtractorCommand(
-            ILogger<PlaceholderExtractorCommand> logger,
+        public PlaceholderExtractCommand(
+            ILogger<PlaceholderExtractCommand> logger,
             ArchiveReader archiveReader,
             RecipeHandler recipeHandler,
             Substitutor substitutor

@@ -33,7 +33,15 @@ namespace Cézanne.Runner
         [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(ListRecipesCommand.Settings))]
         [DynamicDependency(
             DynamicallyAccessedMemberTypes.All,
-            typeof(PlaceholderExtractorCommand.Settings)
+            typeof(PlaceholderExtractCommand.Settings)
+        )]
+        [DynamicDependency(
+            DynamicallyAccessedMemberTypes.All,
+            typeof(BashCompletionCommand.BashSettings)
+        )]
+        [DynamicDependency(
+            DynamicallyAccessedMemberTypes.All,
+            typeof(PowershellCompletionCommand.PowershellSettings)
         )]
         private static int Main(string[] args)
         {
