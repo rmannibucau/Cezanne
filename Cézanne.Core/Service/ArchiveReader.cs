@@ -57,6 +57,7 @@ namespace Cézanne.Core.Service
                             it.EndsWith(".json")
                             || it.EndsWith(".yml")
                             || it.EndsWith(".yaml")
+                            || it.EndsWith(".cs")
                             || it.EndsWith(".hb")
                             || it.EndsWith(".handlebars")
                         )

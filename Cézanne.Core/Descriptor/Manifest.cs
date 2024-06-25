@@ -572,7 +572,8 @@ namespace Cézanne.Core.Descriptor
                 ""
                     + "If set to `true`, it will interpolate the descriptor just before applying it - i.e. after it had been patched if needed. "
                     + "You can use `--<config-key> <value>` to inject bindings set as `{{config-key:-default value}}`. "
-                    + "If not set, `interpolateDescriptors` flag from the recipe will be used."
+                    + "If not set, `interpolateDescriptors` flag from the recipe will be used. "
+                    + "Note that having a descriptor extenson of `.hb` or `.handlebars` will force the interpolation (by design)."
             )]
             public bool? Interpolate { get; set; }
 

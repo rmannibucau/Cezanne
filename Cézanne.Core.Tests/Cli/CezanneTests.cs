@@ -75,7 +75,38 @@ namespace Cézanne.Core.Tests.Cli
         public void PlaceholderExtract()
         {
             var (baseDir, manifest, kubernetes) = _PrepareLayout();
-            _WriteSimpleRecipe(manifest, kubernetes, true);
+            _WriteSimpleRecipe(
+                manifest,
+                kubernetes,
+                """
+                {
+                    "recipes": [
+                        {
+                            "name": "test",
+                            "descriptors": [
+                                {
+                                    "interpolate": true,
+                                    "name": "descriptor.yaml"
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """,
+                """
+                {
+                    "kind": "ConfigMap",
+                    "apiVersion": "v1",
+                    "metadata": {
+                        "name": "test"
+                    },
+                    "data": {
+                        "custom1":"{{my.custom.value}}",
+                        "custom2":"{{other.value:-fallback}}"
+                    }
+                }
+                """
+            );
 
             var descriptions = $"{baseDir}/descriptions.properties";
             File.WriteAllText(
@@ -228,6 +259,184 @@ namespace Cézanne.Core.Tests.Cli
 
         [Test]
         [TempFolder]
+        public async Task ApplyPatch()
+        {
+            var (baseDir, manifest, kubernetes) = _PrepareLayout();
+            _WriteSimpleRecipe(
+                manifest,
+                kubernetes,
+                """
+                {
+                    "recipes": [
+                        {
+                            "name": "test",
+                            "descriptors": [
+                                {
+                                    "name": "descriptor.yaml"
+                                }
+                            ],
+                             "patches": [
+                                {
+                                    "descriptorName": "descriptor.yaml",
+                                    "patch": [
+                                        {
+                                            "op": "add",
+                                            "path": "/metadata/labels",
+                                            "value": {}
+                                        },
+                                        {
+                                            "op": "add",
+                                            "path": "/metadata/labels/patched",
+                                            "value": "true"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """
+            );
+
+            var (mockServer, requests) = await _MockK8s(true);
+            await using var _ = mockServer;
+
+            _Cezanne(baseDir, mockServer).Run(["apply", "-a", "test", "-m", manifest]);
+
+            Assert.That(
+                requests,
+                Is.EqualTo(
+                    new HashSet<string>
+                    {
+                        "GET /api/v1",
+                        "GET /api/v1/namespaces/default/configmaps/test",
+                        "PATCH /api/v1/namespaces/default/configmaps/test\n{\"kind\":\"ConfigMap\",\"apiVersion\":\"v1\",\"metadata\":{\"name\":\"test\",\"labels\":{\"patched\":\"true\"}},\"data\":{}}"
+                    }
+                )
+            );
+        }
+
+        [Test]
+        [TempFolder]
+        public async Task ApplyHandleBars()
+        {
+            var (baseDir, manifest, kubernetes) = _PrepareLayout();
+            _WriteSimpleRecipe(
+                manifest,
+                kubernetes,
+                """
+                {
+                    "recipes": [
+                        {
+                            "name": "test",
+                            "descriptors": [
+                                {
+                                    "name": "descriptor.yaml.hb"
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """,
+                """
+                apiVersion: v1
+                kind: Service
+                metadata:
+                  name: {{alveolus.name}}
+                  namespace: {{bundlebee.kubernetes.namespace}}
+                labels:
+                  app: {{alveolus.name}}
+                  label: {{#unless a.b.c}}notset{{/unless}}{{#if a.b.c}}{{a.b.c}}{{/if}}
+                spec:
+                  type: NodePort
+                  ports:
+                    - port: 1235
+                      targetPort: 1235
+                  selector:
+                    app: {{alveolus.name}}
+                """,
+                "descriptor.yaml.hb"
+            );
+
+            var (mockServer, requests) = await _MockK8s(true);
+            await using var _ = mockServer;
+
+            _Cezanne(baseDir, mockServer).Run(["apply", "-a", "test", "-m", manifest]);
+
+            Assert.That(
+                requests,
+                Is.EqualTo(
+                    new HashSet<string>
+                    {
+                        "GET /api/v1",
+                        "GET /api/v1/namespaces/default/services/test",
+                        "PATCH /api/v1/namespaces/default/services/test\n{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"name\":\"test\",\"namespace\":\"default\"},\"labels\":{\"app\":\"test\",\"label\":\"notset\"},\"spec\":{\"type\":\"NodePort\",\"ports\":[{\"port\":1235,\"targetPort\":1235}],\"selector\":{\"app\":\"test\"}}}"
+                    }
+                )
+            );
+        }
+
+
+        [Test]
+        [TempFolder]
+        public async Task ApplyCS()
+        {
+            var (baseDir, manifest, kubernetes) = _PrepareLayout();
+            _WriteSimpleRecipe(
+                manifest,
+                kubernetes,
+                """
+                {
+                    "recipes": [
+                        {
+                            "name": "test",
+                            "descriptors": [
+                                {
+                                    "name": "descriptor.yaml.cs"
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """,
+                "return $\"\"\"\n" + 
+                """
+                apiVersion: v1
+                kind: Service
+                metadata:
+                  name: {Recipe.Name}
+                  namespace: {K8s.DefaultNamespace}
+                spec:
+                  type: NodePort
+                  ports:
+                    - port: 1235
+                      targetPort: 1235
+                  selector:
+                    app: {Recipe.Name}
+                """ + "\n\"\"\";",
+                "descriptor.yaml.cs"
+            );
+
+            var (mockServer, requests) = await _MockK8s(true);
+            await using var _ = mockServer;
+
+            _Cezanne(baseDir, mockServer).Run(["apply", "-a", "test", "-m", manifest]);
+
+            Assert.That(
+                requests,
+                Is.EqualTo(
+                    new HashSet<string>
+                    {
+                        "GET /api/v1",
+                        "GET /api/v1/namespaces/default/services/test",
+                        "PATCH /api/v1/namespaces/default/services/test\n{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"name\":\"test\",\"namespace\":\"default\"},\"spec\":{\"type\":\"NodePort\",\"ports\":[{\"port\":1235,\"targetPort\":1235}],\"selector\":{\"app\":\"test\"}}}"
+                    }
+                )
+            );
+        }
+
+        [Test]
+        [TempFolder]
         public async Task Delete()
         {
             var (baseDir, manifest, kubernetes) = _PrepareLayout();
@@ -254,14 +463,8 @@ namespace Cézanne.Core.Tests.Cli
         private void _WriteSimpleRecipe(
             string manifest,
             string kubernetes,
-            bool placeholder = false
-        )
-        {
-            Directory.CreateDirectory(kubernetes);
-            File.WriteAllText(
-                manifest,
-                !placeholder
-                    ? """
+            string manifestContent =
+                """
                     {
                         "recipes": [
                             {
@@ -274,27 +477,9 @@ namespace Cézanne.Core.Tests.Cli
                             }
                         ]
                     }
-                    """
-                    : """
-                    {
-                        "recipes": [
-                            {
-                                "name": "test",
-                                "descriptors": [
-                                    {
-                                        "interpolate": true,
-                                        "name": "descriptor.yaml"
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                    """
-            );
-            File.WriteAllText(
-                Path.Combine(kubernetes, "descriptor.yaml"),
-                !placeholder
-                    ? """
+                    """,
+            string descriptor =
+                """
                     {
                         "kind": "ConfigMap",
                         "apiVersion": "v1",
@@ -303,24 +488,16 @@ namespace Cézanne.Core.Tests.Cli
                         },
                         "data": {}
                     }
-                    """
-                    : """
-                    {
-                        "kind": "ConfigMap",
-                        "apiVersion": "v1",
-                        "metadata": {
-                            "name": "test"
-                        },
-                        "data": {
-                            "custom1":"{{my.custom.value}}",
-                            "custom2":"{{other.value:-fallback}}"
-                        }
-                    }
-                    """
-            );
+                    """,
+            string descriptorFileName = "descriptor.yaml"
+        )
+        {
+            Directory.CreateDirectory(kubernetes);
+            File.WriteAllText(manifest, manifestContent);
+            File.WriteAllText(Path.Combine(kubernetes, descriptorFileName), descriptor);
         }
 
-        private async Task<(WebApplication, ISet<string>)> _MockK8s()
+        private async Task<(WebApplication, ISet<string>)> _MockK8s(bool capturePayload = false)
         {
             HashSet<string> requests = [];
             var mockServerBuilder = WebApplication.CreateBuilder();
@@ -334,6 +511,13 @@ namespace Cézanne.Core.Tests.Cli
             mockServer.Run(async ctx =>
             {
                 var current = $"{ctx.Request.Method} {ctx.Request.Path}";
+                if (capturePayload)
+                {
+                    using var reader = new StreamReader(ctx.Request.Body);
+                    var read = await reader.ReadToEndAsync();
+                    current += '\n' + read;
+                    current = current.Trim();
+                }
                 lock (requests)
                 {
                     requests.Add(current);

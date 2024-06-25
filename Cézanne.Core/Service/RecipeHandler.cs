@@ -341,10 +341,14 @@ namespace Cézanne.Core.Service
                                 $"Can't read interpolated patch {patch} (interpolated={patchString})"
                             );
 
-                        if ("json" != desc.Extension)
+                        if (
+                            "json" != desc.Extension
+                            && "yaml" != desc.Extension
+                            && "handlebars" != desc.Extension
+                        )
                         {
                             throw new InvalidOperationException(
-                                $"not json descriptors are not yet supported: {desc}"
+                                $"not json/yaml/hb descriptors are not yet supported: {desc}"
                             );
                         }
 
@@ -353,20 +357,26 @@ namespace Cézanne.Core.Service
                             var json = desc.Extension switch
                             {
                                 "json"
-                                    => JsonSerializer.Deserialize<JsonNode>(
-                                        desc.Content,
+                                    => JsonSerializer.Deserialize(
+                                        content,
                                         CezanneJsonContext.Default.JsonNode
                                     ),
                                 _ => Jsons.FromYaml(desc.Content)
                             };
+
+                            var patched = jsonPatch.Apply(json);
+                            if (!patched.IsSuccess)
+                            {
+                                throw new InvalidOperationException("Patch " + patch + " failed");
+                            }
                             content = JsonSerializer.Serialize(
-                                jsonPatch.Apply(json).Result!,
+                                patched.Result!,
                                 CezanneJsonContext.Default.JsonNode
                             );
                         }
                         catch (Exception e)
                         {
-                            if (!desc.Configuration.Interpolate ?? false)
+                            if (!desc.Configuration.Interpolate ?? _IsInterpolated(desc))
                             {
                                 throw new InvalidOperationException(
                                     $"Can't patch '{desc.Configuration.Name}': {e}"
@@ -394,7 +404,7 @@ namespace Cézanne.Core.Service
                         }
                     }
 
-                    if (!alreadyInterpolated && (desc.Configuration.Interpolate ?? false))
+                    if (!alreadyInterpolated && _IsInterpolated(desc))
                     {
                         content = substitutor.Replace(from, desc, content, id);
                     }
@@ -402,12 +412,20 @@ namespace Cézanne.Core.Service
                     return new LoadedDescriptor(
                         desc.Configuration,
                         content,
-                        desc.Extension,
+                        desc.Extension ?? "",
                         desc.Uri,
                         desc.Resource
                     );
                 }
             );
+        }
+
+        private bool _IsInterpolated(LoadedDescriptor desc)
+        {
+            return ( // handlebars support is in the substitutor - doesnt make sense outside so force it if not disabled
+                    desc.Extension is not null
+                    && (desc.Extension.EndsWith(".cs") || desc.Extension.EndsWith(".hb") || desc.Extension.EndsWith(".handlebars"))
+                ) || (desc.Configuration.Interpolate ?? false);
         }
 
         private IEnumerable<IEnumerable<LoadedDescriptor>> _RankDescriptors(
@@ -485,10 +503,18 @@ namespace Cézanne.Core.Service
         {
             var lastDot = resource.LastIndexOf('.');
             var extension = lastDot > 0 ? resource[(lastDot + 1)..] : "yaml";
+            if (lastDot > 0 && extension is "hb" or "handlebars" or "cs")
+            {
+                var previousDot = resource.LastIndexOf('.', lastDot - 1);
+                extension = previousDot > 0 ? resource[(previousDot + 1)..] : extension;
+            }
             return (
                 extension switch
                 {
                     "yml" => "yaml",
+                    "yml.hb" or "yml.handlebars" => "yaml.handlebars",
+                    "json.hb" => "json.handlebars",
+                    "hb" => "handlebars", // unexpected since not parseable after interpolation?
                     _ => extension
                 }
             ).ToLowerInvariant();
@@ -502,6 +528,7 @@ namespace Cézanne.Core.Service
                     name.EndsWith(".yaml")
                     || name.EndsWith("yml")
                     || name.EndsWith(".json")
+                    || name.EndsWith(".cs")
                     || name.EndsWith(".hb")
                     || name.EndsWith(".handlebars")
                 )

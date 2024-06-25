@@ -335,6 +335,9 @@ namespace Cézanne.Core.K8s
                 var json = extension switch
                 {
                     "json"
+                    or ".json.handlebars"
+                    or ".json.hb"
+                    or ".json.cs"
                         => JsonSerializer.Deserialize(
                             descriptorContent,
                             CezanneJsonContext.Default.JsonNode

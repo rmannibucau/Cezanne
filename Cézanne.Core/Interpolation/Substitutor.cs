@@ -15,6 +15,9 @@ using Cézanne.Core.Maven;
 using Cézanne.Core.Runtime;
 using Cézanne.Core.Service;
 using HandlebarsDotNet;
+using HandlebarsDotNet.Compiler.Resolvers;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cézanne.Core.Interpolation
@@ -115,9 +118,18 @@ namespace Cézanne.Core.Interpolation
                 return null;
             }
 
-            if (desc is not null && ("hb" == desc.Extension || "handlebars" == desc.Extension))
+            if (
+                desc is not null
+                && desc.Extension is not null
+                && (desc.Extension.EndsWith("hb") || desc.Extension.EndsWith("handlebars"))
+            )
             {
                 return _Handlebars(alveolus, desc, source, id);
+            }
+
+            if (desc is not null && desc.Extension is not null && desc.Extension.EndsWith("cs"))
+            {
+                return _CSScript(alveolus, desc, source, id);
             }
 
             var current = source;
@@ -203,6 +215,34 @@ namespace Cézanne.Core.Interpolation
                 + endOfString;
         }
 
+        private string _CSScript(
+            Manifest.Recipe? recipe,
+            LoadedDescriptor? desc,
+            string source,
+            string? id
+        )
+        {
+            return CSharpScript
+                .EvaluateAsync(
+                    source,
+                    ScriptOptions.Default.WithReferences(
+                        AppDomain.CurrentDomain.GetAssemblies().Where(it => !it.IsDynamic)
+                    ),
+                    new CSSharpGlobals(_K8s, id, this, desc, recipe)
+                )
+                .GetAwaiter()
+                .GetResult()
+                .ToString()!;
+        }
+
+        public record CSSharpGlobals(
+            K8SClient? K8s,
+            string? Id,
+            Substitutor Substitutor,
+            LoadedDescriptor? Desc,
+            Manifest.Recipe? Recipe
+        ) { }
+
         private string _Handlebars(
             Manifest.Recipe? recipe,
             LoadedDescriptor? desc,
@@ -229,17 +269,48 @@ namespace Cézanne.Core.Interpolation
                             .Replace("\n", "")
                             .Replace("=", "")
                 );
-                // todo: register fallback helper doing a standard substitution for strings to reuse all built-in subs
+
+                hb.RegisterHelper(
+                    "placeholder",
+                    (output, context, args) =>
+                        Replace(
+                            recipe,
+                            // drop the hb extension to not loop
+                            new LoadedDescriptor(
+                                desc!.Configuration,
+                                desc.Content,
+                                desc.Extension[0..desc.Extension.LastIndexOf('.')],
+                                desc.Uri,
+                                desc.Resource
+                            ),
+                            string.Join(" ", args).Trim(),
+                            id
+                        )
+                );
             }
 
-            return hb.Compile(source)(
+            var tpl = hb.Compile(
+                source
+                // compat with Yupiik BundleBee
+                .Replace("bundlebee-kubernetes-namespace", "bundlebee.kubernetes.namespace")
+            );
+            return tpl(
                 new
                 {
                     // todo: if adopted we should move to IDictionnary which is way faster
                     recipe,
                     alveolus = recipe,
                     descriptor = desc,
-                    executionId = id ?? ""
+                    executionId = id ?? "",
+                    // bundlebee-kubernetes-namespace as in bundlebee
+                    bundlebee = new
+                    {
+                        kubernetes = new Dictionary<string, string>
+                        {
+                            { "namespace", _K8s?.DefaultNamespace ?? "" },
+                            { "base", _K8s?.Base ?? "" },
+                        }
+                    }
                 }
             );
         }
@@ -258,6 +329,11 @@ namespace Cézanne.Core.Interpolation
                     "descriptor.name" => descriptor?.Configuration.Name,
                     "alveolus.name" => alveolus?.Name,
                     "alveolus.version" => alveolus?.Version,
+                    "kubernetes.defaultNamespace"
+                    or "bundlebee-kubernetes-namespace"
+                    or "bundlebee.kubernetes.namespace"
+                        => _K8s?.DefaultNamespace,
+                    "kubernetes.base" => _K8s?.Base,
                     _ => _DoLookup(alveolus, descriptor, varName, varDefaultValue, id)
                 } ?? "";
         }
