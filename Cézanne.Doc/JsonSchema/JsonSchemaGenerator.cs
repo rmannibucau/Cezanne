@@ -6,6 +6,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Cézanne.Core.Descriptor;
 
 namespace Cézanne.Doc.JsonSchema
 {
@@ -20,8 +21,25 @@ namespace Cézanne.Doc.JsonSchema
                 WriteIndented = true,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
                 Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // UTF-8
-                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false) }
+                Converters =
+                {
+                    new JsonStringEnumConverter<Manifest.AwaitConditionType>(
+                        JsonNamingPolicy.SnakeCaseUpper
+                    ),
+                    new JsonStringEnumConverter<Manifest.ConditionOperator>(
+                        JsonNamingPolicy.SnakeCaseUpper
+                    ),
+                    new JsonStringEnumConverter<Manifest.ConditionType>(
+                        JsonNamingPolicy.SnakeCaseUpper
+                    ),
+                    new JsonStringEnumConverter<Manifest.JsonPointerOperator>(
+                        JsonNamingPolicy.SnakeCaseUpper
+                    ),
+                    new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false)
+                }
             };
+
+        public bool InstantiateForDefaults { get; init; } = true;
 
         public JsonSchema For(Type type, Func<Type, PropertyInfo, bool> isIgnored)
         {
@@ -54,6 +72,12 @@ namespace Cézanne.Doc.JsonSchema
             }
 
             schema.Properties = new SortedDictionary<string, JsonSchema>(Comparer<string>.Default);
+
+            object? instance = null;
+            if (InstantiateForDefaults)
+            {
+                instance = Activator.CreateInstance(type);
+            }
 
             IList<string>? required = null;
             foreach (var property in type.GetProperties())
@@ -186,6 +210,25 @@ namespace Cézanne.Doc.JsonSchema
                 schema.Description =
                     property.GetCustomAttribute<DescriptionAttribute>()?.Description
                     ?? schema.Description;
+
+                if (instance is not null)
+                {
+                    var sample = property.GetValue(instance);
+                    if (sample is not null)
+                    {
+                        schema.Default = sample;
+                        schema.Example = [sample];
+                    }
+                }
+
+                if (!property.CanWrite && property.CanRead)
+                {
+                    schema.ReadOnly = true;
+                }
+                else if (property.CanWrite && !property.CanRead)
+                {
+                    schema.WriteOnly = true;
+                }
             }
 
             return schema;

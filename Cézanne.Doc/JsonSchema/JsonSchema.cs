@@ -33,6 +33,10 @@ namespace Cézanne.Doc.JsonSchema
 
         public string? Title { get; set; }
         public string? Description { get; set; }
+        public object? Default { get; set; }
+        public bool? ReadOnly { get; set; }
+        public bool? WriteOnly { get; set; }
+        public IList<object>? Example { get; set; }
 
         [JsonPropertyName("$id")]
         public string? Id { get; set; }
