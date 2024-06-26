@@ -7,7 +7,7 @@ namespace Cézanne.Core.Maven
     [Description("Configuration of the Maven local cache and remote repositor(ies).")]
     public class MavenConfiguration
     {
-        [Description("Is remote downloading of transitive alveoli enabled.")]
+        [Description("Is remote downloading of transitive recipes enabled.")]
         public bool EnableDownload { get; set; } = false;
 
         [Description("HTTP timeout.")]
@@ -45,6 +45,6 @@ namespace Cézanne.Core.Maven
                 + "Still in settings.xml case, if the username is null the password value is used as raw `Authorization` header "
                 + "else username/password is encoded as a basic header."
         )]
-        public string? HttpHeaders { get; set; } = "https://repo.maven.apache.org/maven2/";
+        public string? HttpHeaders { get; set; }
     }
 }

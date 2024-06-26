@@ -9,10 +9,12 @@ namespace Cézanne.Core.Service
     public class ArchiveReader(
         ILogger<ArchiveReader> logger,
         ManifestReader manifestReader,
-        MavenService? maven
+        MavenService? maven,
+        NuGetService? nuget
     )
     {
         protected readonly MavenService? _maven = maven;
+        protected readonly NuGetService? _nuget = nuget;
 
         public Archive Read(string coords, string path, string? id)
         {
@@ -154,10 +156,21 @@ namespace Cézanne.Core.Service
                     return _archiveReader.Read(coord, coord, id);
                 }
 
-                var zip = await (
-                    _archiveReader._maven
-                    ?? throw new ArgumentException(nameof(_archiveReader), "Missing maven service")
-                ).FindOrDownload(coord, onProgress);
+                var zip = coord.StartsWith("NuGet:")
+                    ? await (
+                        _archiveReader._nuget
+                        ?? throw new ArgumentException(
+                            "Missing nuget service",
+                            nameof(_archiveReader)
+                        )
+                    ).FindOrDownload(coord["NuGet:".Length..], onProgress)
+                    : await (
+                        _archiveReader._maven
+                        ?? throw new ArgumentException(
+                            "Missing maven service",
+                            nameof(_archiveReader)
+                        )
+                    ).FindOrDownload(coord, onProgress);
                 return _archiveReader.Read(coord, zip, id);
             }
         }

@@ -165,7 +165,7 @@ namespace Cézanne.Core.Tests.Service
                     new Logger<MavenService>(loggerFactory)
                 );
             ArchiveReader archiveReader =
-                new(new Logger<ArchiveReader>(loggerFactory), manifestReader, maven);
+                new(new Logger<ArchiveReader>(loggerFactory), manifestReader, maven, null);
             RecipeHandler recipeHandler =
                 new(
                     new Logger<RecipeHandler>(loggerFactory),

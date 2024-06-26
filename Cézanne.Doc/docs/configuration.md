@@ -12,6 +12,7 @@ The two main configuration are related to:
 
 * Kubernetes client (sections `cezanne>kubernetes` in `cezanne.json`)
 * Maven repositories (sections `cezanne>maven` in `cezanne.json`)
+* NuGet repositories (sections `cezanne>nuget` in `cezanne.json`)
 
 > [!TIP]
 > Because we use Microsoft configuration binder, the separator between section/properties in the environment names are not `_` but `__`, ex: `CEZANNE__KUBERNETES__KUBECONFIG`. Similarly, the integration with the command line arguments does not use `-` as separator but `:`, ex: `--cezanne:kubernetes:KubeConfig=...`

@@ -15,6 +15,7 @@ namespace Cézanne.Core.Tests.Service
             new(
                 new Logger<ArchiveReader>(new NullLoggerFactory()),
                 new ManifestReader(new Substitutor(static _ => null, null, null)),
+                null,
                 null
             );
 

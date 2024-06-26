@@ -14,6 +14,7 @@ namespace Cézanne.Core.Cli
     {
         public K8SClientConfiguration? K8SClientConfiguration { private get; init; }
         public MavenConfiguration? MavenConfiguration { private get; init; }
+        public NuGetConfiguration? NuGetConfiguration { private get; init; }
 
         public int Run(string[] args)
         {
@@ -106,6 +107,12 @@ namespace Cézanne.Core.Cli
                 cezanneSection.GetSection("maven").Bind(maven);
             }
 
+            var nuget = NuGetConfiguration ?? new NuGetConfiguration();
+            if (NuGetConfiguration is null)
+            {
+                cezanneSection.GetSection("nuget").Bind(maven);
+            }
+
             static string? placeholders(string name, string defaultValue)
             {
                 return Environment.GetEnvironmentVariable(name)
@@ -118,10 +125,12 @@ namespace Cézanne.Core.Cli
             services.AddKeyedSingleton("cezannePlaceholderLookupCallback", placeholders);
             services.AddSingleton(k8s);
             services.AddSingleton(maven);
+            services.AddSingleton(nuget);
             services.AddSingleton<K8SClient>();
             services.AddSingleton<ApiPreloader>();
             services.AddSingleton<Substitutor>();
             services.AddSingleton<MavenService>();
+            services.AddSingleton<NuGetService>();
             services.AddSingleton<ConditionEvaluator>();
             services.AddSingleton<ConditionJsonEvaluator>();
             services.AddSingleton<ConditionAwaiter>();
@@ -150,6 +159,7 @@ namespace Cézanne.Core.Cli
             public void Dispose()
             {
                 _container?.Dispose();
+                GC.SuppressFinalize(this);
             }
 
             public ITypeResolver Build()

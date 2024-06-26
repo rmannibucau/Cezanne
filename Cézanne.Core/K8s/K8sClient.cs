@@ -207,6 +207,7 @@ namespace Cézanne.Core.K8s
         public void Dispose()
         {
             DisposeAsync().AsTask().GetAwaiter().GetResult();
+            GC.SuppressFinalize(this);
         }
 
         public async Task<HttpResponseMessage> SendAsync(

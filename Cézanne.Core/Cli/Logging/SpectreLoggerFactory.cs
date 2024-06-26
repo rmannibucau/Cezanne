@@ -13,7 +13,7 @@ namespace Cézanne.Core.Cli.Command
 
         public void Dispose()
         {
-            // no-op
+            GC.SuppressFinalize(this);
         }
 
         internal class SpectreLogger(LogLevel level, string categoryName) : ILogger
@@ -81,7 +81,10 @@ namespace Cézanne.Core.Cli.Command
         {
             public static NullScope Instance { get; } = new();
 
-            public void Dispose() { }
+            public void Dispose()
+            {
+                GC.SuppressFinalize(this);
+            }
         }
     }
 }

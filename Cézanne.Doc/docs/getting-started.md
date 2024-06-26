@@ -227,6 +227,14 @@ It works exactly as for patches but either on descriptors or for dependencies in
 
 More on [manifest.json](manifest-reference.md) documentation.
 
+## Bundling and sharing your recipes
+
+The recipes can be written in an exploded folder when passing the manifest location explicitly - it is often the case for final deployable recipes but more rarely for dependencies.
+
+However, if you want to bundle your recipes you can do it in a zip and expose it in an Apache Maven repository (plain http server) or NuGet server.
+
+Learn more about it visiting the [packaging](packaging.md) documentation.
+
 ## Going further
 
 Now you can move to [commands](commands/index.md) documentation to see how to deploy (`apply` your application).

@@ -50,6 +50,7 @@ namespace Cézanne.Core.Maven
             {
                 it.Value.Dispose();
             }
+            GC.SuppressFinalize(this);
         }
 
         public async Task<string> FindOrDownload(string gav, IProgress<double>? onProgress)
@@ -117,7 +118,7 @@ namespace Cézanne.Core.Maven
             var version = segments[2];
             if (version.Trim().Length == 0)
             {
-                throw new ArgumentException($"Invalid artifactId: {raw}", nameof(raw));
+                throw new ArgumentException($"Invalid version: {raw}", nameof(raw));
             }
 
             var file = Path.Combine(
@@ -494,7 +495,6 @@ namespace Cézanne.Core.Maven
 
                 var sep = line.IndexOf('=');
 
-                Dictionary<string, string> value = new();
                 var valueSep = line[(sep + 1)..].TrimStart().IndexOf('=');
                 var valueBuilder = ImmutableDictionary.CreateBuilder<string, string>();
                 valueBuilder.Add(
