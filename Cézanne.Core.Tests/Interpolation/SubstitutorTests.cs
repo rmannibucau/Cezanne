@@ -212,7 +212,9 @@ namespace Cézanne.Core.Tests.Interpolation
                 _SimpleReplacement(
                     "{{bundlebee-base64url-decode:eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkPDqXphbm5lIiwiaWF0IjoxNTE2MjM5MDIyLCJjaGFycyI6InV-K8KwwqPCtSXCqMKjwrDCsMOgw6dfw6gtX8OnX1_DqC0ifQ}}"
                 ),
-                Is.EqualTo("{\"sub\":\"1234567890\",\"name\":\"Cézanne\",\"iat\":1516239022,\"chars\":\"u~+°£µ%¨£°°àç_è-_ç__è-\"}")
+                Is.EqualTo(
+                    "{\"sub\":\"1234567890\",\"name\":\"Cézanne\",\"iat\":1516239022,\"chars\":\"u~+°£µ%¨£°°àç_è-_ç__è-\"}"
+                )
             );
         }
 

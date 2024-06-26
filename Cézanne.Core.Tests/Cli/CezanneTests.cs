@@ -376,7 +376,6 @@ namespace Cézanne.Core.Tests.Cli
             );
         }
 
-
         [Test]
         [TempFolder]
         public async Task ApplyCS()
@@ -399,21 +398,22 @@ namespace Cézanne.Core.Tests.Cli
                     ]
                 }
                 """,
-                "return $\"\"\"\n" + 
-                """
-                apiVersion: v1
-                kind: Service
-                metadata:
-                  name: {Recipe.Name}
-                  namespace: {K8s.DefaultNamespace}
-                spec:
-                  type: NodePort
-                  ports:
-                    - port: 1235
-                      targetPort: 1235
-                  selector:
-                    app: {Recipe.Name}
-                """ + "\n\"\"\";",
+                "return $\"\"\"\n"
+                    + """
+                    apiVersion: v1
+                    kind: Service
+                    metadata:
+                      name: {Recipe.Name}
+                      namespace: {K8s.DefaultNamespace}
+                    spec:
+                      type: NodePort
+                      ports:
+                        - port: 1235
+                          targetPort: 1235
+                      selector:
+                        app: {Recipe.Name}
+                    """
+                    + "\n\"\"\";",
                 "descriptor.yaml.cs"
             );
 

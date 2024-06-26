@@ -344,11 +344,12 @@ namespace Cézanne.Core.Service
                         if (
                             "json" != desc.Extension
                             && "yaml" != desc.Extension
-                            && "handlebars" != desc.Extension
+                            && !desc.Extension.EndsWith("handlebars")
+                            && !desc.Extension.EndsWith("cs")
                         )
                         {
                             throw new InvalidOperationException(
-                                $"not json/yaml/hb descriptors are not yet supported: {desc}"
+                                $"not json/yaml/hb/cs descriptors are not yet supported: {desc}"
                             );
                         }
 
@@ -424,7 +425,11 @@ namespace Cézanne.Core.Service
         {
             return ( // handlebars support is in the substitutor - doesnt make sense outside so force it if not disabled
                     desc.Extension is not null
-                    && (desc.Extension.EndsWith(".cs") || desc.Extension.EndsWith(".hb") || desc.Extension.EndsWith(".handlebars"))
+                    && (
+                        desc.Extension.EndsWith(".cs")
+                        || desc.Extension.EndsWith(".hb")
+                        || desc.Extension.EndsWith(".handlebars")
+                    )
                 ) || (desc.Configuration.Interpolate ?? false);
         }
 

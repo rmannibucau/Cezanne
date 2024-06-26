@@ -342,7 +342,13 @@ namespace Cézanne.Core.K8s
                             descriptorContent,
                             CezanneJsonContext.Default.JsonNode
                         ),
-                    _ => Jsons.FromYaml(descriptorContent)
+                    _
+                        => descriptorContent.StartsWith('{') || descriptorContent.StartsWith('[')
+                            ? JsonSerializer.Deserialize(
+                                descriptorContent,
+                                CezanneJsonContext.Default.JsonNode
+                            )
+                            : Jsons.FromYaml(descriptorContent)
                 };
                 switch (json?.GetValueKind())
                 {
