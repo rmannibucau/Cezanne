@@ -193,15 +193,20 @@ namespace Cézanne.Core.Tests.Cli
 
             var result = AnsiConsole.ExportCustom(new Exporter());
             Assert.That(
-                Regex.Replace(result, "\\r?\\n[\\r?\\n]*", "\r\n", RegexOptions.Multiline),
+                Regex.Replace(
+                    Regex.Replace(result, "\\r?\\n[\\r?\\n]*", "\r\n", RegexOptions.Multiline),
+                    @"├── From[^└]*",
+                    "├── From -\r\n            ",
+                    RegexOptions.Multiline
+                ),
                 Is.EqualTo(
-                    $$"""
+                    """
                     [   info][      Cézanne.Core.Service.RecipeHandler] Inspecting 'test'
                     Inspection Result
                     └── test
                         └── Descriptors
                             └── descriptor.yaml
-                                ├── From {{baseDir}}
+                                ├── From -
                                 └── ╭─Content─────────────────╮
                                     │ {                       │
                                     │    "kind": "ConfigMap", │

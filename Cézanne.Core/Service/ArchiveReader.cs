@@ -67,7 +67,7 @@ namespace Cézanne.Core.Service
                             new Dictionary<string, string>(),
                             (agg, it) =>
                             {
-                                agg[Path.GetRelativePath(path, it)] = File.ReadAllText(it);
+                                agg[Path.GetRelativePath(path, it).Replace('\\', '/')] = File.ReadAllText(it);
                                 return agg;
                             }
                         );

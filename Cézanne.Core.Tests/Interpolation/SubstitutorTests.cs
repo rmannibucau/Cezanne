@@ -155,7 +155,7 @@ namespace Cézanne.Core.Tests.Interpolation
             var text =
                 $"{{{{bundlebee-directory-json-key-value-pairs-content:{baseDir}/substitutor/json/content/*.txt}}}}";
             Assert.That(
-                _SimpleReplacement(text),
+                _SimpleReplacement(text)!.Replace("\\r\\n", "\\n"),
                 Is.EqualTo(
                     "\"another/2.txt\":\"this\\nanother\\nfile = 2\\n\",\"file/1.txt\":\"this\\nis the file\\nnumber 1\\n\""
                 )
@@ -271,7 +271,9 @@ namespace Cézanne.Core.Tests.Interpolation
 
         private string? _SimpleReplacement(string text)
         {
-            return new Substitutor(static k => null, null, null).Replace(null, null, text, null);
+            return new Substitutor(static k => null, null, null)
+                .Replace(null, null, text, null)
+                .Replace("\r\n", "\n");
         }
     }
 }
