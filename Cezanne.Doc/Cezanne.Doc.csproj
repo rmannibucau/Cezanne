@@ -2,12 +2,9 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net8.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
-        <VersionPrefix>0.0.1</VersionPrefix>
+        <InvariantGlobalization>false</InvariantGlobalization>
+        <IsPackable>false</IsPackable>
 
         <SingulinkFXVersion>3.0.2</SingulinkFXVersion>
         <SiteThemeUrl>https://github.com/Singulink/SingulinkFX/archive/refs/tags/v$(SingulinkFXVersion).zip</SiteThemeUrl>
