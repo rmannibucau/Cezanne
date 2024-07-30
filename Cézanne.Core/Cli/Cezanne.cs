@@ -89,6 +89,7 @@ namespace Cézanne.Core.Cli
 
             // shared services configuration
             var binder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("cezanne.json", true)
                 .AddEnvironmentVariables()
                 .AddCommandLine(args)
