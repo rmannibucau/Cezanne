@@ -1,0 +1,40 @@
+<Project>
+
+    <PropertyGroup>
+        <VersionPrefix>0.0.1</VersionPrefix>
+        <Authors>rmannibucau</Authors>
+        <Company>rmannibucau</Company>
+
+        <PackageTags>Static site, blog</PackageTags>
+
+        <!--
+        1. Overriding spectre API should be silent or replaced to enable it
+        2. completion command should use a source generator to enable it
+        -->
+        <IsTrimmable>false</IsTrimmable>
+        <IsAotCompatible>false</IsAotCompatible>
+
+        <Deterministic>true</Deterministic>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+        <TargetFramework>net8.0</TargetFramework>
+        <LangVersion>12</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <InvariantGlobalization>true</InvariantGlobalization>
+
+        <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)/Generated</CompilerGeneratedFilesOutputPath>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <WarningsAsErrors />
+    </PropertyGroup>
+</Project>
+  

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Cézanne.Core.Cli.Command;
 using Cézanne.Core.Interpolation;
 using Cézanne.Core.K8s;

@@ -1,47 +1,40 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <!--OutputType>Exe</OutputType-->
-        <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
-        <TargetFramework>net8.0</TargetFramework>
-        <LangVersion>12</LangVersion>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-        <EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
-        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)/Generated</CompilerGeneratedFilesOutputPath>
-        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+  <PropertyGroup>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
 
-        <VersionPrefix>0.0.1</VersionPrefix>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+  </PropertyGroup>
 
-        <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
-        <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
-        <IsTrimmable>true</IsTrimmable>
-        <IsAotCompatible>true</IsAotCompatible>
-    </PropertyGroup>
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-      <WarningsAsErrors />
-    </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+  </PropertyGroup>
 
-    <ItemGroup>
-      <PackageReference Include="Handlebars.Net" Version="2.1.6" />
-      <PackageReference Include="JsonPatch.Net" Version="3.1.0" />
-      <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.9.2" />
-      <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.1" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="8.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="8.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection.AutoActivation" Version="8.6.0" />
-      <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-      <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
-      <PackageReference Include="Spectre.Console.Json" Version="0.49.1" />
-      <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
-      <PackageReference Include="System.Text.Json" Version="8.0.4" />
-      <PackageReference Include="YamlDotNet" Version="15.1.6" />
-      <PackageReference Include="YamlDotNet.System.Text.Json" Version="1.4.0" />
-    </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Handlebars.Net" Version="2.1.6" />
+    <PackageReference Include="JsonPatch.Net" Version="3.1.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.9.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables"
+      Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.AutoActivation"
+      Version="8.6.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.49.1" />
+    <PackageReference Include="Spectre.Console.Json" Version="0.49.1" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
+    <PackageReference Include="System.Text.Json" Version="8.0.4" />
+    <PackageReference Include="YamlDotNet" Version="15.1.6" />
+    <PackageReference Include="YamlDotNet.System.Text.Json" Version="1.4.0" />
+  </ItemGroup>
 
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 </Project>
