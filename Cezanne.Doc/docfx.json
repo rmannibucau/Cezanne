@@ -1,0 +1,40 @@
+{
+  "build": {
+    "output": "_site",
+    "content": [
+      {
+        "files": "**/*.{md,yml}",
+        "exclude": [
+          "**/_site/**",
+          "**/generated/**/*.md"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": "**/generated/**/*.json"
+      },
+      {
+        "files": "**/images/*.png"
+      }
+    ],
+    "globalMetadata": {
+      "_appTitle": "Cezanne",
+      "_appName": "Cezanne",
+      "_enableSearch": true,
+      "_appFooter": "<span>Made with love by <a href=\"https://x.com/rmannibucau\" target=\"_blank\">@rmannibucau</a> using docfx.</span>",
+      "_appLogoPath": "images/logo.png",
+      "pdf": false
+    },
+    "sitemap": {
+      "baseUrl": "https://rmannibucau.github.com/Cezanne",
+      "priority": 0.1,
+      "changefreq": "weekly"
+    },
+    "template": [
+      "default",
+      "modern",
+      "templates/cezanne"
+    ]
+  }
+}

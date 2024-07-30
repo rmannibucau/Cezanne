@@ -30,8 +30,8 @@ $wrapping_command dotnet pack -c Release
 
 # publish
 for p in \
-  "Cézanne.Core" \
-  "Cézanne.Runner"
+  "Cezanne.Core" \
+  "Cezanne.Runner"
 do
     echo "[INFO] Publishing $p"
     $wrapping_command dotnet nuget push "./$p/bin/Release/$p.$version.nupkg" --api-key "$NUGET_KEY" --symbol-api-key "$NUGET_KEY" --source https://api.nuget.org/v3/index.json
