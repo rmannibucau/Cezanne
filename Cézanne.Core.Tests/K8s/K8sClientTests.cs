@@ -155,9 +155,15 @@ namespace Cézanne.Core.Tests.K8s
                     )
                 );
                 Assert.That(client.DefaultNamespace, Is.EqualTo("test"));
-                Assert.That(client.HttpMessageHandler.ClientCertificates.Count, Is.EqualTo(2));
                 Assert.That(
-                    from X509Certificate cert in client.HttpMessageHandler.ClientCertificates
+                    client.HttpMessageHandler.SslOptions!.ClientCertificates!,
+                    Has.Count.EqualTo(2)
+                );
+                Assert.That(
+                    from X509Certificate cert in client
+                        .HttpMessageHandler
+                        .SslOptions!
+                        .ClientCertificates!
                     select cert.Subject,
                     Is.EqualTo(
                         ImmutableList.Create("CN=minikube-user, O=system:masters", "CN=minikubeCA")

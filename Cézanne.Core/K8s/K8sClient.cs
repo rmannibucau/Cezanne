@@ -46,11 +46,18 @@ namespace Cézanne.Core.K8s
                     .Trim();
             }
 
-            HttpMessageHandler = new HttpClientHandler
+            // handle messaging/HTTP protocol
+            HttpMessageHandler = new SocketsHttpHandler
             {
                 AutomaticDecompression = DecompressionMethods.All,
                 AllowAutoRedirect = true,
-                MaxAutomaticRedirections = 5
+                MaxAutomaticRedirections = 5,
+                SslOptions = new SslClientAuthenticationOptions
+                {
+                    ClientCertificates = new X509Certificate2Collection()
+                },
+                // connection validity timeout - for DNS "caching"
+                PooledConnectionLifetime = TimeSpan.FromMinutes(5)
             };
             HttpClient = new HttpClient(HttpMessageHandler)
             {
@@ -87,7 +94,7 @@ namespace Cézanne.Core.K8s
             if (configuration.Certificates.Length > 0 && File.Exists(configuration.Certificates))
             {
                 _logger.LogDebug("Loading certificate '{Certificate}'", configuration.Certificates);
-                HttpMessageHandler.ClientCertificates.Add(
+                HttpMessageHandler.SslOptions.ClientCertificates.Add(
                     new X509Certificate2(configuration.Certificates)
                 );
             }
@@ -102,7 +109,7 @@ namespace Cézanne.Core.K8s
                     configuration.PrivateKeyCertificate,
                     configuration.PrivateKey
                 );
-                HttpMessageHandler.ClientCertificates.Add(
+                HttpMessageHandler.SslOptions.ClientCertificates.Add(
                     X509Certificate2.CreateFromPemFile(
                         configuration.PrivateKeyCertificate,
                         configuration.PrivateKey
@@ -119,20 +126,28 @@ namespace Cézanne.Core.K8s
                 );
             }
 
-            if (
-                configuration.SkipTls
-                && HttpMessageHandler.ServerCertificateCustomValidationCallback is null
-            )
+            if (configuration.SkipTls)
             {
-                _logger.LogDebug("Skipping TLS checks");
-                HttpMessageHandler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                if (HttpMessageHandler.SslOptions is null)
+                {
+                    HttpMessageHandler.SslOptions = new SslClientAuthenticationOptions();
+                }
+                if (HttpMessageHandler.SslOptions.RemoteCertificateValidationCallback is null)
+                {
+                    _logger.LogDebug("Skipping TLS checks");
+                    HttpMessageHandler.SslOptions.RemoteCertificateValidationCallback = (
+                        _,
+                        _,
+                        _,
+                        _
+                    ) => true;
+                }
             }
             else if (
-                HttpMessageHandler.ServerCertificateCustomValidationCallback is null
-                && HttpMessageHandler.ClientCertificates.Count > 1 /* likely means custom authority */
+                HttpMessageHandler.SslOptions?.ClientCertificates?.Count > 1 /* likely means custom authority */
             )
             {
-                HttpMessageHandler.ServerCertificateCustomValidationCallback = (
+                HttpMessageHandler.SslOptions.RemoteCertificateValidationCallback = (
                     _,
                     cert,
                     chain,
@@ -156,10 +171,10 @@ namespace Cézanne.Core.K8s
                     // cluster CA is last one - check order we append them
                     chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
                     chain.ChainPolicy.CustomTrustStore.Add(
-                        HttpMessageHandler.ClientCertificates[^1]
+                        HttpMessageHandler.SslOptions.ClientCertificates[^1]
                     );
 
-                    return chain.Build(cert);
+                    return chain.Build(cert as X509Certificate2 ?? new X509Certificate2(cert));
                 };
             }
 
@@ -181,7 +196,7 @@ namespace Cézanne.Core.K8s
 
         public HttpClient HttpClient { get; }
 
-        public HttpClientHandler HttpMessageHandler { get; }
+        public SocketsHttpHandler HttpMessageHandler { get; }
 
         public async ValueTask DisposeAsync()
         {
@@ -198,7 +213,9 @@ namespace Cézanne.Core.K8s
 
             await _apiPreloader.DisposeAsync();
             HttpClient.Dispose();
-            foreach (var clientCertificate in HttpMessageHandler.ClientCertificates)
+            foreach (
+                var clientCertificate in HttpMessageHandler.SslOptions!.ClientCertificates ?? []
+            )
             {
                 clientCertificate.Dispose();
             }
@@ -483,7 +500,7 @@ namespace Cézanne.Core.K8s
         }
 
         private string? _InitFromKubeConfig(
-            HttpClientHandler httpMessageHandler,
+            SocketsHttpHandler httpMessageHandler,
             HttpRequestHeaders requestHeaders
         )
         {
@@ -530,7 +547,8 @@ namespace Cézanne.Core.K8s
             if (cluster.Cluster?.InsecureSkipTlsVerify is true)
             {
                 _logger.LogDebug("Using unsafe SSL mode");
-                HttpMessageHandler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                HttpMessageHandler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) =>
+                    true;
             }
 
             switch (user.User)
@@ -539,7 +557,7 @@ namespace Cézanne.Core.K8s
                 {
                     _logger.LogDebug("Using in mtls authentication");
                     var pem = X509Certificate2.CreateFromPemFile(c, k);
-                    httpMessageHandler.ClientCertificates.Add(pem);
+                    httpMessageHandler.SslOptions!.ClientCertificates!.Add(pem);
                     break;
                 }
                 case { ClientCertificateData: { } c, ClientKeyData: { } k }:
@@ -549,7 +567,7 @@ namespace Cézanne.Core.K8s
                         Encoding.ASCII.GetString(Convert.FromBase64String(c)),
                         Encoding.ASCII.GetString(Convert.FromBase64String(k))
                     );
-                    httpMessageHandler.ClientCertificates.Add(pem);
+                    httpMessageHandler.SslOptions!.ClientCertificates!.Add(pem);
                     break;
                 }
                 default:
@@ -591,7 +609,7 @@ namespace Cézanne.Core.K8s
         }
 
         private void _InitTokenCallback(
-            HttpClientHandler httpMessageHandler,
+            SocketsHttpHandler httpMessageHandler,
             HttpRequestHeaders requestHeaders,
             string tokenFile
         )
@@ -631,7 +649,7 @@ namespace Cézanne.Core.K8s
         }
 
         private void _TryAddingClusterCertificate(
-            HttpClientHandler httpMessageHandler,
+            SocketsHttpHandler httpMessageHandler,
             KubeConfig.Cluster cluster
         )
         {
@@ -640,7 +658,9 @@ namespace Cézanne.Core.K8s
                 var pem = Encoding.ASCII.GetString(
                     Convert.FromBase64String(cluster.CertificateAuthorityData)
                 );
-                httpMessageHandler.ClientCertificates.Add(X509Certificate2.CreateFromPem(pem));
+                httpMessageHandler.SslOptions!.ClientCertificates!.Add(
+                    X509Certificate2.CreateFromPem(pem)
+                );
             }
             else if (
                 cluster.CertificateAuthority is not null
@@ -648,7 +668,7 @@ namespace Cézanne.Core.K8s
             )
             {
                 X509Certificate2 x509 = new(cluster.CertificateAuthority);
-                httpMessageHandler.ClientCertificates.Add(x509);
+                httpMessageHandler.SslOptions!.ClientCertificates!.Add(x509);
             }
         }
 
